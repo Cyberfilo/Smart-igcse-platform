@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+.Python
+
+# Flask / app
+instance/
+*.db
+*.sqlite3
+.env
+.env.local
+.env.*.local
+
+# User uploads (dev)
+uploads/
+data/
+pilot-data/
+
+# Claude Code (local-only)
+.claude/settings.local.json
+.claude/reports/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs
+*.log

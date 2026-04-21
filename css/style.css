@@ -1,0 +1,446 @@
+/* =========================================================
+   IGCSE 0580 Topics Recap Map — Stylesheet
+   Matches the Claude widget aesthetic: flat, clean, minimal
+   ========================================================= */
+
+/* -- Design tokens (light mode default) -- */
+:root {
+  --color-background-primary: #ffffff;
+  --color-background-secondary: #f5f4ee;
+  --color-background-tertiary: #faf9f5;
+  --color-background-info: #E6F1FB;
+  --color-background-danger: #FCEBEB;
+  --color-background-success: #EAF3DE;
+  --color-background-warning: #FAEEDA;
+
+  --color-text-primary: #1f1e1d;
+  --color-text-secondary: #6b6a66;
+  --color-text-tertiary: #9a9892;
+  --color-text-info: #0C447C;
+  --color-text-danger: #791F1F;
+  --color-text-success: #27500A;
+  --color-text-warning: #633806;
+
+  --color-border-tertiary: rgba(0, 0, 0, 0.10);
+  --color-border-secondary: rgba(0, 0, 0, 0.20);
+  --color-border-primary: rgba(0, 0, 0, 0.35);
+  --color-border-info: #378ADD;
+  --color-border-warning: #EF9F27;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", Menlo, Consolas, "Courier New", monospace;
+
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-xl: 16px;
+}
+
+/* -- Dark mode -- */
+body.dark-mode {
+  --color-background-primary: #1e1d1b;
+  --color-background-secondary: #262522;
+  --color-background-tertiary: #18171600;
+  --color-background-info: #042C53;
+  --color-background-danger: #501313;
+  --color-background-success: #173404;
+  --color-background-warning: #412402;
+
+  --color-text-primary: #f5f4ee;
+  --color-text-secondary: #a8a69e;
+  --color-text-tertiary: #797770;
+  --color-text-info: #B5D4F4;
+  --color-text-danger: #F7C1C1;
+  --color-text-success: #C0DD97;
+  --color-text-warning: #FAC775;
+
+  --color-border-tertiary: rgba(255, 255, 255, 0.12);
+  --color-border-secondary: rgba(255, 255, 255, 0.22);
+  --color-border-primary: rgba(255, 255, 255, 0.40);
+  --color-border-info: #85B7EB;
+  --color-border-warning: #FAC775;
+}
+
+/* -- Base reset -- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  background: var(--color-background-tertiary);
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+/* -- Container -- */
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* -- Page header -- */
+.page-header {
+  position: relative;
+  margin: 0 0 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+}
+
+.page-header h1 {
+  font-size: 24px;
+  font-weight: 500;
+  margin: 0 0 4px;
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.theme-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--border-radius-md);
+  border: 0.5px solid var(--color-border-tertiary);
+  background: var(--color-background-primary);
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--color-border-secondary);
+  background: var(--color-background-secondary);
+}
+
+/* -- Summary grid -- */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 0 0 1.5rem;
+}
+
+.summary-card {
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 12px 14px;
+}
+
+.summary-card .s-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.summary-card .s-value {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* -- Section headings -- */
+.module-heading {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 1.5rem 0 0.75rem;
+  color: var(--color-text-primary);
+}
+
+/* -- Topic navigation -- */
+.topic-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 0 0 1.5rem;
+}
+
+.nav-btn {
+  padding: 10px 8px;
+  border-radius: var(--border-radius-md);
+  border: 0.5px solid var(--color-border-tertiary);
+  background: var(--color-background-primary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  transition: all 0.15s ease;
+  color: var(--color-text-primary);
+  font-family: inherit;
+}
+
+.nav-btn:hover {
+  border-color: var(--color-border-secondary);
+  background: var(--color-background-secondary);
+}
+
+.nav-btn.active {
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+  border-color: var(--color-border-info);
+}
+
+/* -- Topic cards -- */
+.topic-card {
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  padding: 1.25rem 1.5rem;
+  margin: 0 0 1rem;
+  transition: opacity 0.2s ease;
+}
+
+.topic-card.hidden {
+  display: none;
+}
+
+.topic-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.topic-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+/* Topic number colors */
+.color-purple      { background: #EEEDFE; color: #3C3489; }
+.color-teal        { background: #E1F5EE; color: #085041; }
+.color-coral       { background: #FAECE7; color: #712B13; }
+.color-pink        { background: #FBEAF0; color: #72243E; }
+.color-blue        { background: #E6F1FB; color: #0C447C; }
+.color-amber       { background: #FAEEDA; color: #633806; }
+.color-purple-alt  { background: #CECBF6; color: #26215C; }
+
+body.dark-mode .color-purple      { background: #3C3489; color: #EEEDFE; }
+body.dark-mode .color-teal        { background: #085041; color: #E1F5EE; }
+body.dark-mode .color-coral       { background: #712B13; color: #FAECE7; }
+body.dark-mode .color-pink        { background: #72243E; color: #FBEAF0; }
+body.dark-mode .color-blue        { background: #0C447C; color: #E6F1FB; }
+body.dark-mode .color-amber       { background: #633806; color: #FAEEDA; }
+body.dark-mode .color-purple-alt  { background: #26215C; color: #CECBF6; }
+
+.topic-title {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+.extended-tag {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-weight: 400;
+}
+
+.topic-intro {
+  font-size: 14px;
+  margin: 0 0 8px;
+  color: var(--color-text-primary);
+}
+
+.topic-intro strong {
+  font-weight: 500;
+}
+
+/* -- Grids inside cards -- */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* -- Formula box -- */
+.formula-box {
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 10px 14px;
+  margin: 8px 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--color-text-primary);
+  word-wrap: break-word;
+}
+
+.formula-box .label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.formula-box.success {
+  color: var(--color-text-success);
+}
+
+.formula-box.danger {
+  color: var(--color-text-danger);
+}
+
+/* -- Fact list -- */
+.fact-list {
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fact-list li {
+  padding: 4px 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+}
+
+.fact-list li::before {
+  content: "→ ";
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+/* -- Section sub-headings inside cards -- */
+.section-h {
+  font-size: 14px;
+  font-weight: 500;
+  margin: 12px 0 6px;
+  color: var(--color-text-primary);
+}
+
+/* -- Pills -- */
+.pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  margin: 2px 4px 2px 0;
+}
+
+.pill-info    { background: var(--color-background-info);    color: var(--color-text-info); }
+.pill-success { background: var(--color-background-success); color: var(--color-text-success); }
+.pill-warning { background: var(--color-background-warning); color: var(--color-text-warning); }
+.pill-danger  { background: var(--color-background-danger);  color: var(--color-text-danger); }
+
+/* -- Example + tip boxes -- */
+.example-box {
+  border-left: 2px solid var(--color-border-info);
+  background: var(--color-background-info);
+  padding: 8px 12px;
+  margin: 8px 0;
+  font-size: 13px;
+  border-radius: 0;
+  color: var(--color-text-primary);
+}
+
+.example-box .eg-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-info);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.tip-box {
+  border-left: 2px solid var(--color-border-warning);
+  background: var(--color-background-warning);
+  padding: 8px 12px;
+  margin: 8px 0;
+  font-size: 13px;
+  border-radius: 0;
+  color: var(--color-text-primary);
+}
+
+.tip-box .tip-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-warning);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  display: block;
+}
+
+/* -- Strategy box -- */
+.strategy-box {
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-lg);
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0 0;
+}
+
+/* -- Page footer -- */
+.page-footer {
+  margin: 2rem 0 1rem;
+  padding-top: 1.5rem;
+  border-top: 0.5px solid var(--color-border-tertiary);
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+}
+
+/* -- Print styles -- */
+@media print {
+  body {
+    padding: 0;
+    background: white;
+  }
+  .topic-nav,
+  .theme-toggle {
+    display: none;
+  }
+  .topic-card.hidden {
+    display: block !important;
+  }
+  .topic-card {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    border: 1px solid #ccc;
+  }
+}
+
+/* -- Smooth transitions on theme change -- */
+.topic-card,
+.summary-card,
+.formula-box,
+.example-box,
+.tip-box,
+.strategy-box,
+.nav-btn {
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}

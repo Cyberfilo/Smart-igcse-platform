@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IGCSE 0580 — Topics Recap Map</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <main class="container">
+
+    <header class="page-header">
+      <h1>IGCSE 0580 Mathematics</h1>
+      <p class="subtitle">Topics recap map — formulas, examples, and quick-recall tips</p>
+      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
+        <span class="theme-icon">◐</span>
+      </button>
+    </header>
+
+    <section class="summary-grid">
+      <div class="summary-card">
+        <div class="s-label">Syllabus</div>
+        <div class="s-value">Cambridge 0580</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">Topics covered</div>
+        <div class="s-value">7</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">Level</div>
+        <div class="s-value">Core + Extended</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">Exam date</div>
+        <div class="s-value">29 Apr 2026</div>
+      </div>
+    </section>
+
+    <h2 class="module-heading">Jump to topic</h2>
+    <nav class="topic-nav" id="nav">
+      <button class="nav-btn active" data-topic="all">All topics</button>
+      <button class="nav-btn" data-topic="1">Irrationals</button>
+      <button class="nav-btn" data-topic="2">Compound int.</button>
+      <button class="nav-btn" data-topic="3">Probability</button>
+      <button class="nav-btn" data-topic="4">Functions</button>
+      <button class="nav-btn" data-topic="5">Vectors</button>
+      <button class="nav-btn" data-topic="6">Motion graphs</button>
+      <button class="nav-btn" data-topic="7">Differentiation</button>
+    </nav>
+
+    <!-- Topic 1: Irrational Numbers -->
+    <article class="topic-card" data-id="1">
+      <div class="topic-header">
+        <div class="topic-num color-purple">1</div>
+        <h3 class="topic-title">Irrational numbers</h3>
+      </div>
+      <p class="topic-intro">Numbers that <strong>cannot</strong> be written as p/q. Non-terminating, non-repeating decimals.</p>
+      <div class="grid-2">
+        <div>
+          <div class="section-h">Irrational</div>
+          <span class="pill pill-info">π</span>
+          <span class="pill pill-info">e</span>
+          <span class="pill pill-info">√2</span>
+          <span class="pill pill-info">√3</span>
+          <span class="pill pill-info">√7</span>
+        </div>
+        <div>
+          <div class="section-h">Rational</div>
+          <span class="pill pill-success">0.75</span>
+          <span class="pill pill-success">⅓</span>
+          <span class="pill pill-success">√9</span>
+          <span class="pill pill-success">−2.5</span>
+        </div>
+      </div>
+      <div class="section-h">Surd rules</div>
+      <div class="formula-box">√a × √b = √(ab)&nbsp;&nbsp;|&nbsp;&nbsp;√a ÷ √b = √(a/b)&nbsp;&nbsp;|&nbsp;&nbsp;1/√a = √a/a</div>
+      <div class="tip-box">
+        <span class="tip-label">Watch out</span>
+        √16 = 4 is rational. Only √n where n is <em>not</em> a perfect square is irrational.
+      </div>
+    </article>
+
+    <!-- Topic 2: Compound Interest -->
+    <article class="topic-card" data-id="2">
+      <div class="topic-header">
+        <div class="topic-num color-teal">2</div>
+        <h3 class="topic-title">Compound interest</h3>
+      </div>
+      <p class="topic-intro">Interest earned on principal <em>plus</em> previously earned interest.</p>
+      <div class="formula-box"><span class="label">Growth</span>A = P(1 + r/100)ⁿ</div>
+      <div class="formula-box"><span class="label">Depreciation</span>A = P(1 − r/100)ⁿ</div>
+      <div class="formula-box"><span class="label">Simple interest (for comparison)</span>I = (P × r × n) / 100</div>
+      <div class="example-box">
+        <span class="eg-label">Example</span>
+        £2000 at 5% for 3 years → A = 2000 × 1.05³ = £2315.25. Interest = £315.25
+      </div>
+      <ul class="fact-list">
+        <li>Non-annual compounding: divide r by periods/year, multiply n</li>
+        <li>Interest earned = A − P</li>
+      </ul>
+    </article>
+
+    <!-- Topic 3: Probability -->
+    <article class="topic-card" data-id="3">
+      <div class="topic-header">
+        <div class="topic-num color-coral">3</div>
+        <h3 class="topic-title">Probability</h3>
+      </div>
+      <div class="formula-box"><span class="label">Basic probability</span>P(A) = favourable outcomes / total outcomes</div>
+      <div class="grid-2">
+        <div class="formula-box"><span class="label">Complement</span>P(not A) = 1 − P(A)</div>
+        <div class="formula-box"><span class="label">Range</span>0 ≤ P(A) ≤ 1</div>
+        <div class="formula-box"><span class="label">Independent (AND)</span>P(A ∩ B) = P(A) × P(B)</div>
+        <div class="formula-box"><span class="label">Exclusive (OR)</span>P(A ∪ B) = P(A) + P(B)</div>
+      </div>
+      <ul class="fact-list">
+        <li>Tree diagrams: multiply along branches, add between branches</li>
+        <li>Without replacement: denominators decrease each pick</li>
+        <li>Expected frequency = n × P(A)</li>
+      </ul>
+      <div class="example-box">
+        <span class="eg-label">Example</span>
+        Bag: 3 red, 5 blue. P(2 red, no replacement) = 3/8 × 2/7 = 3/28
+      </div>
+    </article>
+
+    <!-- Topic 4: Functions -->
+    <article class="topic-card" data-id="4">
+      <div class="topic-header">
+        <div class="topic-num color-pink">4</div>
+        <h3 class="topic-title">Functions</h3>
+      </div>
+      <p class="topic-intro">Rule mapping each input to exactly one output. Written f(x).</p>
+      <div class="section-h">Composite — do inner first</div>
+      <div class="formula-box">fg(x) = f(g(x))&nbsp;&nbsp;|&nbsp;&nbsp;fg ≠ gf in general</div>
+      <div class="section-h">Inverse — swap and solve</div>
+      <div class="formula-box">y = f(x) → swap x, y → solve for y → f⁻¹(x)</div>
+      <div class="example-box">
+        <span class="eg-label">Example</span>
+        f(x) = 2x + 3. Swap: x = 2y + 3 → y = (x − 3)/2. So f⁻¹(x) = (x − 3)/2
+      </div>
+      <ul class="fact-list">
+        <li>Check: ff⁻¹(x) = x</li>
+        <li>Graph of f⁻¹ is f reflected in y = x</li>
+        <li>Domain = valid inputs | Range = possible outputs</li>
+      </ul>
+    </article>
+
+    <!-- Topic 5: Vectors -->
+    <article class="topic-card" data-id="5">
+      <div class="topic-header">
+        <div class="topic-num color-blue">5</div>
+        <h3 class="topic-title">Vectors</h3>
+      </div>
+      <p class="topic-intro">Quantity with magnitude and direction. Column form: (x over y).</p>
+      <div class="grid-2">
+        <div class="formula-box"><span class="label">Magnitude</span>|a| = √(x² + y²)</div>
+        <div class="formula-box"><span class="label">Path rule</span>AB = b − a</div>
+        <div class="formula-box"><span class="label">Midpoint of AB</span>½(a + b)</div>
+        <div class="formula-box"><span class="label">Parallel check</span>one is k × other</div>
+      </div>
+      <ul class="fact-list">
+        <li>Addition / subtraction: component-wise</li>
+        <li>Scalar multiplication: multiply each component by k</li>
+        <li>Collinear: parallel vectors sharing a point</li>
+        <li>Parallelogram: opposite sides are equal vectors</li>
+      </ul>
+    </article>
+
+    <!-- Topic 6: Motion-time Graphs -->
+    <article class="topic-card" data-id="6">
+      <div class="topic-header">
+        <div class="topic-num color-amber">6</div>
+        <h3 class="topic-title">Motion-time graphs</h3>
+      </div>
+      <div class="grid-2">
+        <div>
+          <div class="section-h">Distance–time</div>
+          <ul class="fact-list">
+            <li>Gradient = speed</li>
+            <li>Flat line = stationary</li>
+            <li>Curve = changing speed</li>
+          </ul>
+        </div>
+        <div>
+          <div class="section-h">Speed–time</div>
+          <ul class="fact-list">
+            <li>Gradient = acceleration</li>
+            <li>Area under = distance</li>
+            <li>Negative slope = decelerating</li>
+          </ul>
+        </div>
+      </div>
+      <div class="section-h">Area shapes for distance</div>
+      <div class="formula-box">Rectangle: b × h&nbsp;|&nbsp;Triangle: ½bh&nbsp;|&nbsp;Trapezium: ½(a + b)h</div>
+      <div class="grid-2">
+        <div class="formula-box"><span class="label">Speed</span>speed = distance / time</div>
+        <div class="formula-box"><span class="label">Acceleration</span>a = Δv / t</div>
+      </div>
+    </article>
+
+    <!-- Topic 7: Differentiation -->
+    <article class="topic-card" data-id="7">
+      <div class="topic-header">
+        <div class="topic-num color-purple-alt">7</div>
+        <h3 class="topic-title">Differentiation <span class="extended-tag">(extended only)</span></h3>
+      </div>
+      <div class="formula-box"><span class="label">Power rule</span>y = axⁿ → dy/dx = anxⁿ⁻¹</div>
+      <ul class="fact-list">
+        <li>Constants differentiate to 0</li>
+        <li>Polynomials: differentiate term by term</li>
+        <li>Gradient at x = a: substitute a into dy/dx</li>
+        <li>Stationary points: solve dy/dx = 0</li>
+      </ul>
+      <div class="section-h">Second derivative test</div>
+      <div class="grid-2">
+        <div class="formula-box success">d²y/dx² &gt; 0 → minimum</div>
+        <div class="formula-box danger">d²y/dx² &lt; 0 → maximum</div>
+      </div>
+      <div class="formula-box"><span class="label">Tangent at (x₁, y₁)</span>y − y₁ = m(x − x₁), m = dy/dx</div>
+      <div class="formula-box"><span class="label">Normal at (x₁, y₁)</span>same form, but gradient = −1/m</div>
+      <div class="example-box">
+        <span class="eg-label">Example</span>
+        y = 2x³ − 4x² + 5x − 7 → dy/dx = 6x² − 8x + 5
+      </div>
+    </article>
+
+    <!-- Strategy Footer -->
+    <aside class="strategy-box">
+      <div class="section-h" style="margin-top: 0;">Universal exam strategy</div>
+      <ul class="fact-list">
+        <li>Show every step — method marks count</li>
+        <li>Keep exact values (fractions, surds, π) until the last step</li>
+        <li>Check units on motion questions</li>
+        <li>Re-read the question after solving — are you answering what was asked?</li>
+      </ul>
+    </aside>
+
+    <footer class="page-footer">
+      <p>IGCSE 0580 Topics Recap Map · Cambridge Syllabus</p>
+    </footer>
+
+  </main>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
