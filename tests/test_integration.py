@@ -153,6 +153,37 @@ def test_notes_partial_returns_topic_card(app, client):
     assert b"Irrationals note" in r.data
 
 
+def test_admin_login_lands_on_admin_dashboard(app, client):
+    ctx = _seed_minimal(app)
+    r = _login(client, ctx["admin_email"], "adminpw")
+    assert r.status_code == 302
+    # Admins go straight to /admin/ on login, not the syllabus picker.
+    assert "/admin" in r.headers["Location"]
+
+    r2 = client.get("/admin/")
+    assert r2.status_code == 200
+
+
+def test_admin_syllabus_switch_does_not_write_user_row(app, client):
+    ctx = _seed_minimal(app)
+    _login(client, ctx["admin_email"], "adminpw")
+    # Clear any residual syllabus_id (seed sets admin.syllabus_id for now).
+    from models import User
+
+    with app.app_context():
+        admin = User.query.filter_by(email=ctx["admin_email"]).first()
+        admin.syllabus_id = None
+        from extensions import db as _db
+
+        _db.session.commit()
+
+    client.post("/syllabus", data={"code": "0580"})
+
+    with app.app_context():
+        admin = User.query.filter_by(email=ctx["admin_email"]).first()
+        assert admin.syllabus_id is None, "Admin switching syllabus should NOT write User.syllabus_id"
+
+
 def test_admin_login_and_user_creation(app, client):
     ctx = _seed_minimal(app)
     r = _login(client, ctx["admin_email"], "adminpw")

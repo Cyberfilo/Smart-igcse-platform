@@ -84,14 +84,17 @@ def health():
 @pages_bp.route("/")
 def index():
     """Auth-first flow:
-        anonymous      → /login
-        authed, no syll → /syllabus
-        authed, syll    → /notes
+        anonymous          → /login
+        authed admin       → /admin (they manage, don't study)
+        authed, no syll    → /syllabus (student picks)
+        authed, syll set   → /notes
     If the DB is empty (pre-seed), fall back to the legacy bundled static
     page — only happens when Railway's preDeployCommand hasn't run yet.
     """
     if not current_user.is_authenticated:
         return redirect(url_for("pages.login"))
+    if current_user.is_admin:
+        return redirect(url_for("admin.dashboard"))
     syllabus = _current_syllabus()
     if syllabus is None:
         if Syllabus.query.count() == 0:
@@ -109,9 +112,14 @@ def syllabus_select():
         if s is None:
             flash("Unknown syllabus code.", "error")
             return redirect(url_for("pages.syllabus_select"))
+        # Syllabus is a data filter, not an account attribute. Persist it
+        # as the user's default only for students (so next login opens to
+        # their syllabus). Admins manage all syllabi — switching just
+        # changes what they're browsing this session; User.syllabus_id stays null.
         session["syllabus_code"] = s.code
-        current_user.syllabus_id = s.id
-        db.session.commit()
+        if not current_user.is_admin:
+            current_user.syllabus_id = s.id
+            db.session.commit()
         return redirect(url_for("pages.notes"))
     syllabi = Syllabus.query.order_by(Syllabus.code).all()
     return render_template("syllabus.html", syllabi=syllabi, current=_current_syllabus())
@@ -162,11 +170,16 @@ def login():
             syll = db.session.get(Syllabus, user.syllabus_id)
             if syll:
                 session["syllabus_code"] = syll.code
-        # Post-login routing: explicit `next` param wins; otherwise pick
-        # syllabus → notes based on whether a syllabus is already set.
+        # Post-login routing:
+        #   explicit ?next=... wins
+        #   admin → /admin dashboard (they manage, don't study a syllabus)
+        #   student with syllabus set → /notes
+        #   student without → /syllabus picker
         next_url = request.args.get("next")
         if next_url:
             return redirect(next_url)
+        if user.role == "admin":
+            return redirect(url_for("admin.dashboard"))
         if user.syllabus_id:
             return redirect(url_for("pages.notes"))
         return redirect(url_for("pages.syllabus_select"))

@@ -2,17 +2,22 @@
 DB has no users yet — otherwise chicken-and-egg since /admin/users requires
 admin login.
 
+Admins manage all syllabi; they aren't enrolled in one. DO NOT pass --syllabus
+unless you also want the admin to open to /notes of that syllabus on login
+(the switcher in the topnav lets them browse any syllabus anyway).
+
 Usage (run inside Railway so DATABASE_URL resolves):
 
-    # Random password, no default syllabus
-    railway run python -m scripts.create_admin filo@menghi.dev
+    # Recommended — username + your own password, no syllabus
+    railway run python -m scripts.create_admin admin \\
+        --password 'YourPasswordHere'
 
-    # Your own password, set 0580 as default syllabus
+    # Email-style login
     railway run python -m scripts.create_admin filo@menghi.dev \\
-        --syllabus 0580 --password 'YourPasswordHere'
+        --password 'YourPasswordHere'
 
-    # Set a custom username that isn't an email (works fine — just a unique ID)
-    railway run python -m scripts.create_admin admin --password 'YourPasswordHere'
+    # Random auto-generated password (printed once)
+    railway run python -m scripts.create_admin admin
 
 If the email/username already exists, promotes the account to admin and
 updates the password only if --password is passed (otherwise leaves it).
