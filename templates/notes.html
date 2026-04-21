@@ -4,13 +4,9 @@
 
 {% block body %}
   <main class="container">
-
     <header class="page-header">
       <h1>{{ syllabus.name }}</h1>
-      <p class="subtitle">Topics recap map — formulas, examples, and quick-recall tips</p>
-      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
-        <span class="theme-icon">◐</span>
-      </button>
+      <p class="subtitle">Pick an area to see its topics — or browse all.</p>
     </header>
 
     <section class="summary-grid">
@@ -32,33 +28,57 @@
       </div>
     </section>
 
-    <h2 class="module-heading">Filter by area</h2>
-    <nav class="topic-nav" id="area-nav">
-      <button class="nav-btn active" data-area="all">All areas</button>
+    {# Area tiles — primary landing. Click one → drills into that area. #}
+    <h2 class="module-heading">Syllabus areas</h2>
+    <section class="area-grid" id="area-grid">
       {% for area_code, area_name in areas %}
-        <button class="nav-btn" data-area="{{ area_code }}">{{ area_name }}</button>
+        {% set area_topics = topics | selectattr('area_code', 'equalto', area_code) | list %}
+        <button class="area-tile" data-area="{{ area_code }}">
+          <div class="area-tile-code">{{ area_code }}</div>
+          <div class="area-tile-name">{{ area_name }}</div>
+          <div class="area-tile-count">{{ area_topics|length }} topic{{ 's' if area_topics|length != 1 else '' }}</div>
+        </button>
       {% endfor %}
-    </nav>
+    </section>
 
-    <h2 class="module-heading">Jump to topic</h2>
-    <nav class="topic-nav" id="topic-nav">
-      {% for t in topics %}
-        <button class="nav-btn" data-topic="{{ t.number }}" data-area="{{ t.area_code or 'other' }}">{{ t.short_name or t.name }}</button>
-      {% endfor %}
-    </nav>
+    {# Area view — hidden until an area is picked. Topic jump nav + cards for that area only. #}
+    <section class="area-view" id="area-view" hidden>
+      <div class="area-view-header">
+        <button class="area-back" id="area-back" aria-label="Back to areas">&larr; All areas</button>
+        <h2 class="module-heading" id="area-view-title" style="margin:0;"></h2>
+      </div>
 
-    {% for t in topics %}
-      {% set note = t.notes[0] if t.notes else None %}
-      {% if note %}
-        <article class="topic-card" data-id="{{ t.number }}" data-area="{{ t.area_code or 'other' }}">
-          <div class="topic-header">
-            <div class="topic-num {{ t.color_class }}">{{ t.number }}</div>
-            <h3 class="topic-title">{{ t.name }} <span class="extended-tag">{{ t.syllabus_ref or '' }}</span></h3>
-          </div>
-          {{ note.content_html | safe }}
-        </article>
-      {% endif %}
-    {% endfor %}
+      <nav class="topic-nav" id="topic-nav">
+        {# Populated per-area by JS #}
+      </nav>
+
+      <div class="topic-cards" id="topic-cards">
+        {% for t in topics %}
+          {% set note = t.notes[0] if t.notes else None %}
+          {% if note %}
+            <article class="topic-card" data-id="{{ t.number }}" data-area="{{ t.area_code or 'other' }}" data-short="{{ t.short_name or t.name }}">
+              <div class="topic-header">
+                <div class="topic-num {{ t.color_class }}">{{ t.number }}</div>
+                <h3 class="topic-title">{{ t.name }} <span class="extended-tag">{{ t.syllabus_ref or '' }}</span></h3>
+              </div>
+              {{ note.content_html | safe }}
+
+              <div class="topic-chat" data-topic-id="{{ t.id }}">
+                <button class="chat-open" type="button">💬 Ask Claude about this topic</button>
+                <div class="chat-panel" hidden>
+                  <div class="chat-log" aria-live="polite"></div>
+                  <form class="chat-form">
+                    <input type="text" class="chat-input" placeholder="e.g. can you give another example?" required>
+                    <button type="submit" class="nav-btn active">Send</button>
+                  </form>
+                  <div class="chat-hint">Replies are AI-generated; double-check with a teacher for exam-critical details.</div>
+                </div>
+              </div>
+            </article>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </section>
 
     <aside class="strategy-box">
       <div class="section-h" style="margin-top: 0;">Universal exam strategy</div>
@@ -73,6 +93,5 @@
     <footer class="page-footer">
       <p>{{ syllabus.name }} · Cambridge Syllabus</p>
     </footer>
-
   </main>
 {% endblock %}

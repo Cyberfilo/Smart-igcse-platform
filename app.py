@@ -37,6 +37,27 @@ def create_app(config_class: type = Config) -> Flask:
     for bp in ALL_BLUEPRINTS:
         app.register_blueprint(bp)
 
+    # Make `current_syllabus` available in every template so the topnav can
+    # show which syllabus the user is on.
+    @app.context_processor
+    def inject_current_syllabus():
+        from flask import session
+        from flask_login import current_user
+
+        from models import Syllabus
+
+        syll = None
+        try:
+            if current_user.is_authenticated and current_user.syllabus_id:
+                syll = db.session.get(Syllabus, current_user.syllabus_id)
+            else:
+                code = session.get("syllabus_code")
+                if code:
+                    syll = Syllabus.query.filter_by(code=code).first()
+        except Exception:
+            syll = None
+        return {"current_syllabus": syll}
+
     return app
 
 

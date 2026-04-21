@@ -7,10 +7,50 @@ from flask_login import current_user, login_required
 
 from extensions import db
 from models import Attempt, ErrorProfile, Note, SubPart, Topic
+from services.chat import ask as chat_ask
 from services.marking import auto_mark
 from services.ocr import diagnose
 
 api_bp = Blueprint("api", __name__)
+
+
+# --- Per-topic chat (clarifying questions) ---
+
+
+@api_bp.route("/api/chat/<int:topic_id>", methods=["POST"])
+def topic_chat(topic_id: int):
+    """Stateless chat endpoint. Client sends conversation history + new
+    question; server returns the assistant reply. No DB writes — keeps
+    per-topic conversations entirely client-side for v1 (privacy-friendly +
+    no schema yet)."""
+    topic = db.session.get(Topic, topic_id)
+    if topic is None:
+        abort(404)
+
+    payload = request.get_json(silent=True) or {}
+    question = (payload.get("message") or "").strip()
+    history = payload.get("history") or []
+    if not question:
+        return jsonify({"error": "message required"}), 400
+    if not isinstance(history, list):
+        return jsonify({"error": "history must be a list"}), 400
+
+    # Use the first Note attached to this topic as the canonical grounding text.
+    note = Note.query.filter_by(topic_id=topic.id).order_by(Note.display_order).first()
+    canonical = note.content_html if note else ""
+
+    reply = chat_ask(
+        question=question,
+        history=[
+            {"role": m.get("role"), "content": m.get("content", "")}
+            for m in history
+            if m.get("role") in ("user", "assistant") and isinstance(m.get("content"), str)
+        ],
+        topic_name=topic.name,
+        syllabus_ref=topic.syllabus_ref,
+        canonical_html=canonical,
+    )
+    return jsonify({"reply": reply, "topic_id": topic.id})
 
 
 # --- Phase 1 — HTMX partials ---
