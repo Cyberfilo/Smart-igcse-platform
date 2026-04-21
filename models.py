@@ -114,6 +114,7 @@ class User(UserMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True, nullable=False)
+    username = db.Column(db.String(64), unique=True, nullable=True)  # optional, alt login + display
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(16), default="student", nullable=False)  # student / admin
     syllabus_id = db.Column(db.Integer, db.ForeignKey("syllabi.id"), nullable=True)
@@ -124,6 +125,12 @@ class User(UserMixin, db.Model):
     @property
     def is_admin(self) -> bool:
         return self.role == "admin"
+
+    @property
+    def display_name(self) -> str:
+        """What to show in the topnav / greetings. Username if set;
+        otherwise the local part of the email."""
+        return self.username or self.email.split("@")[0]
 
 
 # --- Phase 3 — past-paper ingestion ---

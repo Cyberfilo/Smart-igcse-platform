@@ -37,7 +37,12 @@ from extensions import db  # noqa: E402
 from models import Syllabus, User  # noqa: E402
 
 
-def run(email: str, syllabus_code: str | None, password: str | None) -> None:
+def run(
+    email: str,
+    syllabus_code: str | None,
+    password: str | None,
+    username: str | None,
+) -> None:
     email = email.strip().lower()
     app = create_app()
     with app.app_context():
@@ -54,6 +59,8 @@ def run(email: str, syllabus_code: str | None, password: str | None) -> None:
             existing.role = "admin"
             if syll:
                 existing.syllabus_id = syll.id
+            if username:
+                existing.username = username
             if password:
                 existing.password_hash = hash_password(password)
                 print(f"Upgraded {email} to admin; password updated.")
@@ -65,6 +72,7 @@ def run(email: str, syllabus_code: str | None, password: str | None) -> None:
         chosen_password = password or secrets.token_urlsafe(16)
         user = User(
             email=email,
+            username=username,
             password_hash=hash_password(chosen_password),
             role="admin",
             syllabus_id=syll.id if syll else None,
@@ -72,13 +80,17 @@ def run(email: str, syllabus_code: str | None, password: str | None) -> None:
         db.session.add(user)
         db.session.commit()
 
-        print(f"\nCreated admin user:  {email}")
+        print(f"\nCreated admin user:")
+        print(f"  Email:      {email}")
+        if username:
+            print(f"  Username:   {username}")
         if password:
-            print("Password:            (the one you passed via --password)")
+            print("  Password:   (as passed via --password)")
         else:
-            print(f"Password:            {chosen_password}")
-            print("                     COPY NOW — random, not shown again.")
-        print("\nSign in at https://igcse.menghi.dev/login")
+            print(f"  Password:   {chosen_password}")
+            print("              COPY NOW — random, not shown again.")
+        print(f"\nLogin identifier: you can sign in with EITHER the email or the username.")
+        print(f"Sign in at https://igcse.menghi.dev/login")
 
 
 if __name__ == "__main__":
@@ -88,5 +100,7 @@ if __name__ == "__main__":
                         help="Default syllabus code (0580 or 0654). Optional.")
     parser.add_argument("--password", "-p", default=None,
                         help="Custom password. If omitted, a random 16-char password is generated.")
+    parser.add_argument("--username", "-u", default=None,
+                        help="Display name / alternative login identifier (e.g. 'Filippo-Admin').")
     args = parser.parse_args()
-    run(args.email, args.syllabus, args.password)
+    run(args.email, args.syllabus, args.password, args.username)

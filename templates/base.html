@@ -54,7 +54,7 @@
             {% endif %}
           </div>
         </details>
-        <span class="topnav-user">{{ current_user.email.split('@')[0] }}</span>
+        <span class="topnav-user">{{ current_user.display_name }}</span>
         <form method="post" action="{{ url_for('pages.logout') }}" class="topnav-form">
           <button type="submit" class="topnav-link">Sign out</button>
         </form>

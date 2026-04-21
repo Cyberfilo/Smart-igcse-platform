@@ -159,11 +159,18 @@ def login():
     if current_user.is_authenticated:
         return redirect(url_for("pages.notes"))
     if request.method == "POST":
-        email = (request.form.get("email") or "").strip().lower()
+        identifier_raw = (request.form.get("email") or "").strip()
         password = request.form.get("password") or ""
-        user = User.query.filter_by(email=email).first()
+        # Accept either email (lowercased) or username (exact case).
+        identifier_lower = identifier_raw.lower()
+        user = (
+            User.query.filter(
+                (User.email == identifier_lower) | (User.username == identifier_raw)
+            )
+            .first()
+        )
         if user is None or not verify_password(user.password_hash, password):
-            flash("Invalid email or password.", "error")
+            flash("Invalid login or password.", "error")
             return redirect(url_for("pages.login"))
         login_user(user)
         if user.syllabus_id:
