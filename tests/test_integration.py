@@ -110,16 +110,33 @@ def _login(client, email, password):
     )
 
 
-def test_root_redirects_to_notes_when_syllabus_seeded(app, client):
+def test_root_redirects_anon_to_login(app, client):
     _seed_minimal(app)
-    # No auth; no syllabus in session → should redirect to /syllabus
+    # Anonymous user: / → /login regardless of seeded content.
     r = client.get("/", follow_redirects=False)
     assert r.status_code == 302
-    assert r.headers["Location"].endswith("/syllabus")
+    assert "/login" in r.headers["Location"]
 
 
-def test_syllabus_selector_persists_in_session(app, client):
+def test_root_after_login_goes_to_notes_when_user_has_syllabus(app, client):
+    ctx = _seed_minimal(app)
+    _login(client, ctx["student_email"], "studentpw")  # seeded user has syllabus_id set
+    r = client.get("/", follow_redirects=False)
+    assert r.status_code == 302
+    assert "/notes" in r.headers["Location"]
+
+
+def test_syllabus_selector_requires_login(app, client):
     _seed_minimal(app)
+    # Anonymous POST → should bounce to login, NOT silently succeed.
+    r = client.post("/syllabus", data={"code": "0580"}, follow_redirects=False)
+    assert r.status_code == 302
+    assert "/login" in r.headers["Location"]
+
+
+def test_syllabus_selector_persists_for_logged_in_user(app, client):
+    ctx = _seed_minimal(app)
+    _login(client, ctx["student_email"], "studentpw")
     r = client.post("/syllabus", data={"code": "0580"}, follow_redirects=False)
     assert r.status_code == 302
     assert r.headers["Location"].endswith("/notes")
@@ -287,9 +304,8 @@ def test_rate_limit_returns_429_after_cap(app, client):
         assert bump_and_check(uid, "test_endpoint", daily_cap=3) is False
 
 
-def test_health_static_legacy_fallback_when_empty_db(app, client):
-    """When DB has no syllabi yet, / falls back to static templates/index.html."""
-    r = client.get("/")
-    assert r.status_code == 200
-    # The bundled static page contains the hand-written headline.
-    assert b"IGCSE 0580 Mathematics" in r.data
+def test_empty_db_anon_still_goes_to_login(app, client):
+    """Even with an empty DB, anonymous / → /login (no legacy page for anon)."""
+    r = client.get("/", follow_redirects=False)
+    assert r.status_code == 302
+    assert "/login" in r.headers["Location"]

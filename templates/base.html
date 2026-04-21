@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}IGCSE Recap Map{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ asset_v.css }}">
   <script>
     window.MathJax = {
       tex: {
@@ -14,7 +14,6 @@
       svg: { fontCache: 'global' }
     };
   </script>
-  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6" defer></script>
   <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
   <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
   {% block head_extra %}{% endblock %}
@@ -22,21 +21,21 @@
 <body>
   <nav class="topnav" id="topnav">
     <a class="topnav-brand" href="{{ url_for('pages.index') }}">IGCSE Recap</a>
-    <div class="topnav-links">
-      <a href="{{ url_for('pages.notes') }}" class="topnav-link">Notes</a>
-      {% if current_user.is_authenticated %}
+    {% if current_user.is_authenticated %}
+      <div class="topnav-links">
+        <a href="{{ url_for('pages.notes') }}" class="topnav-link">Notes</a>
         <a href="{{ url_for('pages.exercise_select') }}" class="topnav-link">Exercise</a>
         <a href="{{ url_for('pages.revision') }}" class="topnav-link">Revision</a>
         {% if current_user.is_admin %}
           <a href="{{ url_for('admin.dashboard') }}" class="topnav-link topnav-admin">Admin</a>
         {% endif %}
-      {% endif %}
-    </div>
+      </div>
+    {% endif %}
     <div class="topnav-right">
-      <a href="{{ url_for('pages.syllabus_select') }}" class="topnav-syllabus">
-        {% if current_syllabus %}Cambridge {{ current_syllabus.code }}{% else %}Pick syllabus{% endif %}
-      </a>
       {% if current_user.is_authenticated %}
+        <a href="{{ url_for('pages.syllabus_select') }}" class="topnav-syllabus">
+          {% if current_syllabus %}{{ current_syllabus.code }} · {{ current_syllabus.name }}{% else %}Pick syllabus{% endif %}
+        </a>
         <span class="topnav-user">{{ current_user.email.split('@')[0] }}</span>
         <form method="post" action="{{ url_for('pages.logout') }}" class="topnav-form">
           <button type="submit" class="topnav-link">Sign out</button>
@@ -61,7 +60,7 @@
   {% endwith %}
 
   {% block body %}{% endblock %}
-  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v={{ asset_v.js }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -3,13 +3,19 @@ def test_app_factory_creates(app):
     assert app.url_map is not None
 
 
-def test_index_serves_homepage(client):
-    response = client.get("/")
+def test_index_redirects_anon_to_login(client):
+    """Auth-first flow: anonymous user hitting / bounces to /login."""
+    response = client.get("/", follow_redirects=False)
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_login_page_renders(client):
+    response = client.get("/login")
     assert response.status_code == 200
-    body = response.data
-    assert b"IGCSE 0580 Mathematics" in body
-    assert body.count(b'class="topic-card"') == 7
-    assert b"29 Apr 2026" in body
+    assert b"Sign in" in response.data
+    assert b'name="email"' in response.data
+    assert b'name="password"' in response.data
 
 
 def test_static_css_served(client):

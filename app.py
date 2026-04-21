@@ -58,6 +58,18 @@ def create_app(config_class: type = Config) -> Flask:
             syll = None
         return {"current_syllabus": syll}
 
+    # Cache-bust the stylesheet + JS using file mtime — every Railway deploy
+    # overwrites the files, changing mtime, which forces browser revalidation.
+    @app.context_processor
+    def inject_asset_version():
+        static_root = app.static_folder
+        try:
+            css = int(os.path.getmtime(os.path.join(static_root, "css", "style.css")))
+            js = int(os.path.getmtime(os.path.join(static_root, "js", "app.js")))
+            return {"asset_v": {"css": css, "js": js}}
+        except OSError:
+            return {"asset_v": {"css": 0, "js": 0}}
+
     return app
 
 

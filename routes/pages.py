@@ -83,18 +83,25 @@ def health():
 
 @pages_bp.route("/")
 def index():
-    """Root lands on notes for the current syllabus; if no syllabus selected,
-    show selector. If DB is empty (pre-seed), fall back to the static bundled
-    page so the site never serves an empty shell."""
+    """Auth-first flow:
+        anonymous      → /login
+        authed, no syll → /syllabus
+        authed, syll    → /notes
+    If the DB is empty (pre-seed), fall back to the legacy bundled static
+    page — only happens when Railway's preDeployCommand hasn't run yet.
+    """
+    if not current_user.is_authenticated:
+        return redirect(url_for("pages.login"))
     syllabus = _current_syllabus()
     if syllabus is None:
         if Syllabus.query.count() == 0:
-            return render_template("index.html")  # legacy bundled static page
+            return render_template("index.html")
         return redirect(url_for("pages.syllabus_select"))
     return redirect(url_for("pages.notes"))
 
 
 @pages_bp.route("/syllabus", methods=["GET", "POST"])
+@login_required
 def syllabus_select():
     if request.method == "POST":
         code = request.form.get("code", "").strip()
@@ -103,20 +110,18 @@ def syllabus_select():
             flash("Unknown syllabus code.", "error")
             return redirect(url_for("pages.syllabus_select"))
         session["syllabus_code"] = s.code
-        if current_user.is_authenticated:
-            current_user.syllabus_id = s.id
-            db.session.commit()
+        current_user.syllabus_id = s.id
+        db.session.commit()
         return redirect(url_for("pages.notes"))
     syllabi = Syllabus.query.order_by(Syllabus.code).all()
     return render_template("syllabus.html", syllabi=syllabi, current=_current_syllabus())
 
 
 @pages_bp.route("/notes")
+@login_required
 def notes():
     syllabus = _current_syllabus()
     if syllabus is None:
-        if Syllabus.query.count() == 0:
-            return render_template("index.html")
         return redirect(url_for("pages.syllabus_select"))
     topics = (
         Topic.query.filter_by(syllabus_id=syllabus.id)
@@ -157,8 +162,14 @@ def login():
             syll = db.session.get(Syllabus, user.syllabus_id)
             if syll:
                 session["syllabus_code"] = syll.code
-        next_url = request.args.get("next") or url_for("pages.notes")
-        return redirect(next_url)
+        # Post-login routing: explicit `next` param wins; otherwise pick
+        # syllabus → notes based on whether a syllabus is already set.
+        next_url = request.args.get("next")
+        if next_url:
+            return redirect(next_url)
+        if user.syllabus_id:
+            return redirect(url_for("pages.notes"))
+        return redirect(url_for("pages.syllabus_select"))
     return render_template("login.html")
 
 
