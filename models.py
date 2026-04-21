@@ -97,7 +97,14 @@ class Cohort(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
-    admin_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    # Circular FK: Cohort.admin_id → users.id AND User.cohort_id → cohorts.id.
+    # `use_alter=True` makes Alembic emit this FK as a separate ALTER TABLE
+    # after both tables are created. Postgres otherwise rejects the migration.
+    admin_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", use_alter=True, name="fk_cohorts_admin_id"),
+        nullable=True,
+    )
     visibility_rules = db.Column(JSON, nullable=True)  # {"topic_ids": [1,2,3]}
     created_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
 

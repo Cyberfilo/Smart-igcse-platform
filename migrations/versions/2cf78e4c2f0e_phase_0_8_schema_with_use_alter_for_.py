@@ -1,8 +1,8 @@
-"""phase 0-8 consolidated schema with topic areas
+"""phase 0-8 schema with use_alter for circular FK
 
-Revision ID: e95afa549a34
+Revision ID: 2cf78e4c2f0e
 Revises: 
-Create Date: 2026-04-21 13:10:18.985606
+Create Date: 2026-04-21 13:57:21.366019
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'e95afa549a34'
+revision = '2cf78e4c2f0e'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -24,7 +24,7 @@ def upgrade():
     sa.Column('admin_id', sa.Integer(), nullable=True),
     sa.Column('visibility_rules', sa.JSON(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['admin_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['admin_id'], ['users.id'], name='fk_cohorts_admin_id', use_alter=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
     )
@@ -43,20 +43,6 @@ def upgrade():
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('code')
     )
-    op.create_table('users',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('email', sa.String(length=255), nullable=False),
-    sa.Column('password_hash', sa.String(length=255), nullable=False),
-    sa.Column('role', sa.String(length=16), nullable=False),
-    sa.Column('syllabus_id', sa.Integer(), nullable=True),
-    sa.Column('cohort_id', sa.Integer(), nullable=True),
-    sa.Column('learning_style_profile', sa.String(length=32), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['cohort_id'], ['cohorts.id'], ),
-    sa.ForeignKeyConstraint(['syllabus_id'], ['syllabi.id'], ),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('email')
-    )
     op.create_table('papers',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('syllabus_id', sa.Integer(), nullable=False),
@@ -65,16 +51,6 @@ def upgrade():
     sa.ForeignKeyConstraint(['syllabus_id'], ['syllabi.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('syllabus_id', 'number', name='uq_paper_syllabus_number')
-    )
-    op.create_table('rate_limits',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=False),
-    sa.Column('day', sa.Date(), nullable=False),
-    sa.Column('endpoint', sa.String(length=64), nullable=False),
-    sa.Column('count', sa.Integer(), nullable=False),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('user_id', 'day', 'endpoint', name='uq_rl_user_day_endpoint')
     )
     op.create_table('topics',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -94,6 +70,20 @@ def upgrade():
     with op.batch_alter_table('topics', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_topics_area_code'), ['area_code'], unique=False)
 
+    op.create_table('users',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('email', sa.String(length=255), nullable=False),
+    sa.Column('password_hash', sa.String(length=255), nullable=False),
+    sa.Column('role', sa.String(length=16), nullable=False),
+    sa.Column('syllabus_id', sa.Integer(), nullable=True),
+    sa.Column('cohort_id', sa.Integer(), nullable=True),
+    sa.Column('learning_style_profile', sa.String(length=32), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['cohort_id'], ['cohorts.id'], ),
+    sa.ForeignKeyConstraint(['syllabus_id'], ['syllabi.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('email')
+    )
     op.create_table('error_profiles',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
@@ -130,6 +120,16 @@ def upgrade():
     sa.ForeignKeyConstraint(['syllabus_id'], ['syllabi.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('syllabus_id', 'paper_id', 'session_id', 'variant', name='uq_pp_full')
+    )
+    op.create_table('rate_limits',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('day', sa.Date(), nullable=False),
+    sa.Column('endpoint', sa.String(length=64), nullable=False),
+    sa.Column('count', sa.Integer(), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'day', 'endpoint', name='uq_rl_user_day_endpoint')
     )
     op.create_table('revision_notes',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -196,16 +196,16 @@ def downgrade():
     op.drop_table('subparts')
     op.drop_table('questions')
     op.drop_table('revision_notes')
+    op.drop_table('rate_limits')
     op.drop_table('past_papers')
     op.drop_table('notes')
     op.drop_table('error_profiles')
+    op.drop_table('users')
     with op.batch_alter_table('topics', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_topics_area_code'))
 
     op.drop_table('topics')
-    op.drop_table('rate_limits')
     op.drop_table('papers')
-    op.drop_table('users')
     op.drop_table('syllabi')
     op.drop_table('sessions')
     op.drop_table('cohorts')
