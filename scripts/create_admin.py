@@ -1,15 +1,25 @@
-"""Create (or upgrade to admin) a user. Used to bootstrap the first admin when
-the DB has no users yet, which is otherwise a chicken-and-egg problem since
-/admin/users requires admin login.
+"""Create (or upgrade to admin) a user. Bootstraps the first admin when the
+DB has no users yet — otherwise chicken-and-egg since /admin/users requires
+admin login.
 
 Usage (run inside Railway so DATABASE_URL resolves):
-    railway run python -m scripts.create_admin <email>
 
-On success prints the generated password ONCE — copy it immediately.
-If the email already exists, promotes the account to admin (password unchanged).
+    # Random password, no default syllabus
+    railway run python -m scripts.create_admin filo@menghi.dev
+
+    # Your own password, set 0580 as default syllabus
+    railway run python -m scripts.create_admin filo@menghi.dev \\
+        --syllabus 0580 --password 'YourPasswordHere'
+
+    # Set a custom username that isn't an email (works fine — just a unique ID)
+    railway run python -m scripts.create_admin admin --password 'YourPasswordHere'
+
+If the email/username already exists, promotes the account to admin and
+updates the password only if --password is passed (otherwise leaves it).
 """
 from __future__ import annotations
 
+import argparse
 import secrets
 import sys
 from pathlib import Path
@@ -22,36 +32,56 @@ from extensions import db  # noqa: E402
 from models import Syllabus, User  # noqa: E402
 
 
-def run(email: str, syllabus_code: str | None = None) -> None:
+def run(email: str, syllabus_code: str | None, password: str | None) -> None:
+    email = email.strip().lower()
     app = create_app()
     with app.app_context():
+        syll = Syllabus.query.filter_by(code=syllabus_code).first() if syllabus_code else None
+        if syllabus_code and syll is None:
+            print(
+                f"Warning: syllabus '{syllabus_code}' not found in DB. "
+                "User will be created with no default syllabus."
+            )
+
         existing = User.query.filter_by(email=email).first()
+
         if existing:
             existing.role = "admin"
+            if syll:
+                existing.syllabus_id = syll.id
+            if password:
+                existing.password_hash = hash_password(password)
+                print(f"Upgraded {email} to admin; password updated.")
+            else:
+                print(f"Upgraded existing user {email} to admin (password unchanged).")
             db.session.commit()
-            print(f"Upgraded existing user {email} to role=admin.")
-            print("(Password unchanged — use their existing password to log in.)")
             return
 
-        password = secrets.token_urlsafe(16)
-        syll = Syllabus.query.filter_by(code=syllabus_code).first() if syllabus_code else None
+        chosen_password = password or secrets.token_urlsafe(16)
         user = User(
-            email=email.strip().lower(),
-            password_hash=hash_password(password),
+            email=email,
+            password_hash=hash_password(chosen_password),
             role="admin",
             syllabus_id=syll.id if syll else None,
         )
         db.session.add(user)
         db.session.commit()
-        print(f"\nCreated admin user: {email}")
-        print(f"Password (COPY NOW — won't be shown again): {password}")
-        print(f"\nSign in at https://igcse.menghi.dev/login")
+
+        print(f"\nCreated admin user:  {email}")
+        if password:
+            print("Password:            (the one you passed via --password)")
+        else:
+            print(f"Password:            {chosen_password}")
+            print("                     COPY NOW — random, not shown again.")
+        print("\nSign in at https://igcse.menghi.dev/login")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python -m scripts.create_admin <email> [syllabus_code]")
-        sys.exit(1)
-    email = sys.argv[1]
-    code = sys.argv[2] if len(sys.argv) > 2 else None
-    run(email, code)
+    parser = argparse.ArgumentParser(description="Create or promote an admin user.")
+    parser.add_argument("email", help="Login identifier (email or username — any unique string)")
+    parser.add_argument("--syllabus", "-s", default=None,
+                        help="Default syllabus code (0580 or 0654). Optional.")
+    parser.add_argument("--password", "-p", default=None,
+                        help="Custom password. If omitted, a random 16-char password is generated.")
+    args = parser.parse_args()
+    run(args.email, args.syllabus, args.password)
