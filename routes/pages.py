@@ -17,7 +17,7 @@ from flask import (
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import text
 
-from auth import verify_password
+from auth import student_only, verify_password
 from extensions import db
 from models import (
     Attempt,
@@ -104,7 +104,7 @@ def index():
 
 
 @pages_bp.route("/syllabus", methods=["GET", "POST"])
-@login_required
+@student_only
 def syllabus_select():
     if request.method == "POST":
         code = request.form.get("code", "").strip()
@@ -126,7 +126,7 @@ def syllabus_select():
 
 
 @pages_bp.route("/notes")
-@login_required
+@student_only
 def notes():
     syllabus = _current_syllabus()
     if syllabus is None:
@@ -205,7 +205,7 @@ def logout():
 
 
 @pages_bp.route("/exercise")
-@login_required
+@student_only
 def exercise_select():
     syllabus = _current_syllabus()
     if syllabus is None:
@@ -216,7 +216,7 @@ def exercise_select():
 
 
 @pages_bp.route("/exercise/subpart/<int:subpart_id>")
-@login_required
+@student_only
 def exercise_subpart(subpart_id: int):
     sp = db.session.get(SubPart, subpart_id)
     if sp is None:
@@ -229,7 +229,7 @@ def exercise_subpart(subpart_id: int):
 
 
 @pages_bp.route("/onboarding/style", methods=["GET", "POST"])
-@login_required
+@student_only
 def onboarding_style():
     if request.method == "POST":
         answers: dict[int, str] = {}
@@ -246,7 +246,7 @@ def onboarding_style():
 
 
 @pages_bp.route("/revision")
-@login_required
+@student_only
 def revision():
     from services.ratelimit import bump_and_check
 

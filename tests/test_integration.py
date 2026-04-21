@@ -147,10 +147,20 @@ def test_syllabus_selector_persists_for_logged_in_user(app, client):
 
 def test_notes_partial_returns_topic_card(app, client):
     ctx = _seed_minimal(app)
+    _login(client, ctx["student_email"], "studentpw")
     r = client.get(f"/notes/{ctx['topic_id']}/partial")
     assert r.status_code == 200
     assert b"class=\"topic-card\"" in r.data
     assert b"Irrationals note" in r.data
+
+
+def test_notes_partial_blocks_admin(app, client):
+    """Admin hitting a student-only endpoint gets bounced to /admin."""
+    ctx = _seed_minimal(app)
+    _login(client, ctx["admin_email"], "adminpw")
+    r = client.get(f"/notes/{ctx['topic_id']}/partial", follow_redirects=False)
+    assert r.status_code == 302
+    assert "/admin" in r.headers["Location"]
 
 
 def test_admin_login_lands_on_admin_dashboard(app, client):

@@ -3,8 +3,9 @@ pages — kept separate so Phase 1's notes-partial pattern is obvious."""
 from __future__ import annotations
 
 from flask import Blueprint, abort, jsonify, render_template, request
-from flask_login import current_user, login_required
+from flask_login import current_user
 
+from auth import student_only
 from extensions import db
 from models import Attempt, ErrorProfile, Note, SubPart, Topic
 from services.chat import ask as chat_ask
@@ -18,6 +19,7 @@ api_bp = Blueprint("api", __name__)
 
 
 @api_bp.route("/api/chat/<int:topic_id>", methods=["POST"])
+@student_only
 def topic_chat(topic_id: int):
     """Stateless chat endpoint. Client sends conversation history + new
     question; server returns the assistant reply. No DB writes — keeps
@@ -57,6 +59,7 @@ def topic_chat(topic_id: int):
 
 
 @api_bp.route("/notes/<int:topic_id>/partial")
+@student_only
 def note_partial(topic_id: int):
     topic = db.session.get(Topic, topic_id)
     if topic is None:
@@ -85,7 +88,7 @@ def _bump_error_profile(user_id: int, topic_id: int | None, weight_delta: float)
 
 
 @api_bp.route("/attempt/<int:subpart_id>", methods=["POST"])
-@login_required
+@student_only
 def submit_attempt(subpart_id: int):
     sp = db.session.get(SubPart, subpart_id)
     if sp is None:
@@ -118,7 +121,7 @@ def submit_attempt(subpart_id: int):
 
 
 @api_bp.route("/attempt/<int:subpart_id>/photo", methods=["POST"])
-@login_required
+@student_only
 def submit_photo_attempt(subpart_id: int):
     import os
 
