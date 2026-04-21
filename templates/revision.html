@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Revision — {{ style.replace('_', ' ') }}{% endblock %}
+
+{% block body %}
+  <main class="container">
+    <header class="page-header">
+      <h1>Revision</h1>
+      <p class="subtitle">Style: <strong>{{ style.replace('_', ' ') }}</strong> · topics sorted by your error profile.</p>
+    </header>
+
+    {% for r in rendered %}
+      {{ r.html | safe }}
+    {% endfor %}
+
+    {% if not rendered %}
+      <aside class="strategy-box">
+        <div class="section-h" style="margin-top:0;">Nothing to revise yet</div>
+        <p class="topic-intro">No topics configured for your syllabus. Ask your teacher to seed topics first.</p>
+      </aside>
+    {% endif %}
+  </main>
+{% endblock %}

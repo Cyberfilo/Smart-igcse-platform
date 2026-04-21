@@ -137,15 +137,23 @@ Workflow:
 
 ## Phasing (refined with decisions)
 
-- **Phase 0** — Scaffolding. `requirements.txt`, `Procfile` (`web: gunicorn app:app`), env-var config layer (DATABASE_URL / OPENAI_API_KEY / SECRET_KEY), Flask + SQLAlchemy + Flask-Login wiring, Railway Postgres + Volume connected, `igcse.menghi.dev` CNAME swap to Railway, smoke-test deploy.
-- **Phase 1** — Data models for Syllabus/Paper/Session/Topic. Syllabus selector page. Notes page rendered from DB via HTMX partials. Reuse all current CSS tokens.
-- **Phase 2** — Managed auth: admin + student roles, random-password issuing flow, `/admin` skeleton, session middleware.
-- **Phase 3** — Past-paper ingestion pipeline: admin uploads PDF → GPT vision extracts pages 3–18 question-by-question → SubPart records generated with marking-scheme alternatives parsed from pages 6–10 of the scheme → admin review queue at `/admin/review/<question_id>` → publish on approval.
-- **Phase 4** — Exercise page, digital-input variant (0654 P2 MCQ first). Topic + paper + variant + difficulty selector. End-to-end flow without OCR.
-- **Phase 5** — Photo-of-working upload + GPT vision diagnostic feedback (correct_optimal / correct_suboptimal / incorrect paths). Error-profile updates. **Highest-risk phase — prototype in a throwaway branch concurrently with Phase 1 to de-risk before committing to the full roadmap.**
-- **Phase 6** — Bespoke learning-style test (5–7 questions) + Revision page personalised notes (GPT-generated + cached).
-- **Phase 7** — Error-profile → Revision feedback loop (low-performing topics surface first; revision re-generates on error-profile delta).
-- **Phase 8** — Rate limiting, LLM-cost dashboard, backup/export, prod hardening.
+- **Phase 0** — ✅ code-complete 2026-04-21. Factory + /health + Alembic scaffold. See `.claude/state/phase-0-plan.md`.
+- **Phase 1** — ✅ code-complete 2026-04-21. `Syllabus/Paper/Session/Topic/Note` models, `/syllabus` + `/notes` + `/notes/<id>/partial` HTMX route, seed script for 0580 (7 topics + current recap notes) and 0654 placeholder.
+- **Phase 2** — ✅ code-complete 2026-04-21. `User/Cohort` models, pbkdf2 hashing (Werkzeug; no flask-bcrypt needed), `/login` + `/logout`, `admin_required` decorator, `/admin/users` with `secrets.token_urlsafe(16)` issuing and one-shot password display.
+- **Phase 3** — ⚠️ scaffold-only 2026-04-21. `PastPaper/Question/SubPart` models, `/admin/papers/upload`, `/admin/review`, `/admin/review/<id>`, extraction service `services/ingestion.py` with `FEATURE_INGESTION` flag. Real PDF→vision call is a TODO (needs `pymupdf` + user validation against mock PDFs). Stub inserts one fake question per upload so review UI works.
+- **Phase 4** — ✅ code-complete 2026-04-21. `/exercise` selector, `/exercise/subpart/<id>` renderer, `services/marking.py` for mcq/scalar/multi_cell, `Attempt` persistence, error-profile bump on non-optimal verdicts.
+- **Phase 5** — ⚠️ scaffold-only, BLOCKED on prototype gate. `services/ocr.py` diagnose() with `FEATURE_OCR` flag (stub verdict when off), `/attempt/<id>/photo` route, `/prototype/diagnose` endpoint behind `FEATURE_PROTOTYPE`. DO NOT flip `FEATURE_OCR=1` until `.claude/state/phase-5-feasibility.md` reports GREEN (plan.md risk #1).
+- **Phase 6** — ✅ code-complete 2026-04-21. 5-question quiz → `learning_style_profile` ∈ {schema_heavy/narrative/formula_first/worked_example}, `/revision` page with per-style LLM note generation behind `FEATURE_REVISION_LLM` (stub when off), `RevisionNote` cache keyed by error-profile snapshot.
+- **Phase 7** — ✅ code-complete 2026-04-21. `ErrorProfile` bumps in `/attempt/*` handlers; cache invalidation wired in `/attempt/<id>/photo` (deletes all RevisionNotes for the affected topic).
+- **Phase 8** — ✅ partial code-complete 2026-04-21. `RateLimit` table + `bump_and_check` + `@rate_limit` decorator (applied to `/revision` note generation at 50/day). `/admin/cost` dashboard renders per-user daily counters; OpenAI /v1/usage hook is a seam (needs `OPENAI_ADMIN_KEY`). Structured-ish logging in `_configure_logging`. Gunicorn tuning (`--workers 2 --timeout 120`) deferred until vision load observed.
+
+**What still needs user action**:
+1. Push the branch + verify Railway deploy boots on the new `Procfile`.
+2. `railway run flask --app app db upgrade` once to apply the consolidated migration.
+3. `railway run python -m scripts.seed_syllabi` to seed syllabi + current 7 topics into Postgres.
+4. Decide whether to create the first admin user via a one-off `railway run` Python snippet (plan doesn't include a bootstrap-admin CLI yet).
+5. Collect Phase 5 handwriting corpus → run prototype → commit verdict to `.claude/state/phase-5-feasibility.md` → flip `FEATURE_OCR=1` only after GREEN.
+6. Drop mock PDFs into `/data/past-papers/` and flip `FEATURE_INGESTION=1` to pilot Phase 3 extraction.
 
 ## Biggest risks
 

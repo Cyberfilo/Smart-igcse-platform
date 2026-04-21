@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Notes — {{ syllabus.name }}{% endblock %}
+
+{% block body %}
+  <main class="container">
+
+    <header class="page-header">
+      <h1>{{ syllabus.name }}</h1>
+      <p class="subtitle">Topics recap map — formulas, examples, and quick-recall tips</p>
+      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
+        <span class="theme-icon">◐</span>
+      </button>
+    </header>
+
+    <section class="summary-grid">
+      <div class="summary-card">
+        <div class="s-label">Syllabus</div>
+        <div class="s-value">Cambridge {{ syllabus.code }}</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">Topics</div>
+        <div class="s-value">{{ topics|length }}</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">Areas</div>
+        <div class="s-value">{{ areas|length }}</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">Today</div>
+        <div class="s-value">{{ today.strftime("%d %b %Y") }}</div>
+      </div>
+    </section>
+
+    <h2 class="module-heading">Filter by area</h2>
+    <nav class="topic-nav" id="area-nav">
+      <button class="nav-btn active" data-area="all">All areas</button>
+      {% for area_code, area_name in areas %}
+        <button class="nav-btn" data-area="{{ area_code }}">{{ area_name }}</button>
+      {% endfor %}
+    </nav>
+
+    <h2 class="module-heading">Jump to topic</h2>
+    <nav class="topic-nav" id="topic-nav">
+      {% for t in topics %}
+        <button class="nav-btn" data-topic="{{ t.number }}" data-area="{{ t.area_code or 'other' }}">{{ t.short_name or t.name }}</button>
+      {% endfor %}
+    </nav>
+
+    {% for t in topics %}
+      {% set note = t.notes[0] if t.notes else None %}
+      {% if note %}
+        <article class="topic-card" data-id="{{ t.number }}" data-area="{{ t.area_code or 'other' }}">
+          <div class="topic-header">
+            <div class="topic-num {{ t.color_class }}">{{ t.number }}</div>
+            <h3 class="topic-title">{{ t.name }} <span class="extended-tag">{{ t.syllabus_ref or '' }}</span></h3>
+          </div>
+          {{ note.content_html | safe }}
+        </article>
+      {% endif %}
+    {% endfor %}
+
+    <aside class="strategy-box">
+      <div class="section-h" style="margin-top: 0;">Universal exam strategy</div>
+      <ul class="fact-list">
+        <li>Show every step — method marks count</li>
+        <li>Keep exact values (fractions, surds, π) until the last step</li>
+        <li>Check units on motion and mensuration questions</li>
+        <li>Re-read the question after solving — are you answering what was asked?</li>
+      </ul>
+    </aside>
+
+    <footer class="page-footer">
+      <p>{{ syllabus.name }} · Cambridge Syllabus</p>
+    </footer>
+
+  </main>
+{% endblock %}

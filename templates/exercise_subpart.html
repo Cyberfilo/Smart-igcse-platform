@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Exercise — Q{{ question.question_number }}({{ subpart.letter }}){% endblock %}
+
+{% block body %}
+  <main class="container">
+    <header class="page-header">
+      <h1>Question {{ question.question_number }}({{ subpart.letter }})</h1>
+      <p class="subtitle">{{ subpart.marks or '–' }} marks</p>
+    </header>
+
+    <article class="topic-card">
+      <div class="section-h">Question</div>
+      <div>{{ subpart.body_html | safe }}</div>
+
+      {% if subpart.answer_schema == 'mcq' and subpart.mcq_choices %}
+        <div class="section-h">Your answer</div>
+        <form id="attempt-form" data-schema="mcq">
+          {% for c in subpart.mcq_choices %}
+            <label style="display:block; padding:.4rem 0;">
+              <input type="radio" name="choice" value="{{ c.id }}"> {{ c.html | safe }}
+            </label>
+          {% endfor %}
+          <button type="submit" class="nav-btn active">Submit</button>
+        </form>
+      {% elif subpart.answer_schema == 'scalar' %}
+        <div class="section-h">Your answer</div>
+        <form id="attempt-form" data-schema="scalar">
+          <input type="text" name="scalar" style="padding:.6rem; width:60%;" required>
+          <button type="submit" class="nav-btn active">Submit</button>
+        </form>
+
+        <div class="section-h">Or upload a photo of your working</div>
+        <form id="photo-form" enctype="multipart/form-data">
+          <input type="hidden" name="answer" id="photo-answer">
+          <input type="file" name="photo" accept="image/*" capture="environment" required>
+          <button type="submit" class="nav-btn">Upload + diagnose</button>
+        </form>
+      {% else %}
+        <p class="topic-intro">This sub-part ({{ subpart.answer_schema }}) isn't wired for digital input yet.</p>
+      {% endif %}
+
+      <div id="result"></div>
+    </article>
+  </main>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    (function() {
+      const form = document.getElementById('attempt-form');
+      const photoForm = document.getElementById('photo-form');
+      const result = document.getElementById('result');
+
+      async function submitAnswer(answer) {
+        const r = await fetch('/attempt/{{ subpart.id }}', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({answer})
+        });
+        const data = await r.json();
+        renderResult(data);
+        return answer;
+      }
+
+      function renderResult(data) {
+        const klass = data.verdict === 'correct_optimal' ? 'tip-box'
+          : data.verdict === 'correct_suboptimal' ? 'tip-box'
+          : 'example-box';
+        const label = data.verdict === 'correct_optimal' ? 'Correct' : data.verdict === 'correct_suboptimal' ? 'Correct — faster way available' : 'Not quite';
+        result.innerHTML = `<div class="${klass}"><span class="eg-label">${label}</span>${data.feedback_html || ''}</div>`;
+      }
+
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const schema = form.dataset.schema;
+          let answer;
+          if (schema === 'mcq') {
+            const checked = form.querySelector('input[name=choice]:checked');
+            answer = checked ? checked.value : null;
+          } else {
+            answer = form.querySelector('input[name=scalar]').value;
+          }
+          document.getElementById('photo-answer') && (document.getElementById('photo-answer').value = answer);
+          submitAnswer(answer);
+        });
+      }
+
+      if (photoForm) {
+        photoForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const fd = new FormData(photoForm);
+          const r = await fetch('/attempt/{{ subpart.id }}/photo', {method:'POST', body: fd});
+          const data = await r.json();
+          renderResult(data);
+        });
+      }
+    })();
+  </script>
+{% endblock %}

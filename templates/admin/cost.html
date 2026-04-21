@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Admin — Cost dashboard{% endblock %}
+
+{% block body %}
+  <main class="container">
+    <header class="page-header">
+      <h1>Cost dashboard — {{ today }}</h1>
+      <p class="subtitle">Per-user rate-limited-endpoint hits today.</p>
+    </header>
+
+    {% if openai_usage %}
+      <aside class="strategy-box">
+        <div class="section-h" style="margin-top:0;">OpenAI /v1/usage</div>
+        <pre style="white-space:pre-wrap;">{{ openai_usage }}</pre>
+      </aside>
+    {% else %}
+      <aside class="strategy-box">
+        <div class="section-h" style="margin-top:0;">OpenAI /v1/usage</div>
+        <p class="topic-intro">Set <code>OPENAI_ADMIN_KEY</code> on Railway to pull cost data. Until then, see per-user counters below.</p>
+      </aside>
+    {% endif %}
+
+    <article class="topic-card">
+      <div class="section-h">Per-user counters</div>
+      {% if rows %}
+        <ul class="fact-list">
+          {% for rl, u in rows %}
+            <li>{{ u.email }} · {{ rl.endpoint }} · <strong>{{ rl.count }}</strong> calls</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="topic-intro">No rate-limited calls recorded today.</p>
+      {% endif %}
+    </article>
+  </main>
+{% endblock %}

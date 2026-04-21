@@ -37,3 +37,20 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Migrations compiled bytecode
+migrations/versions/__pycache__/
+
+# Flask instance + local SQLite
+instance/
+dev*.db
+dev*.sqlite3
+
+# Phase 5 prototype corpus
+prototype-data/
+

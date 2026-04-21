@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Admin — Users{% endblock %}
+
+{% block body %}
+  <main class="container">
+    <header class="page-header">
+      <h1>Users</h1>
+      <p class="subtitle">Credentials are admin-issued. No public signup.</p>
+    </header>
+
+    {% if new_password %}
+      <article class="topic-card">
+        <div class="section-h">New password — copy now</div>
+        <div class="formula-box"><code>{{ new_password }}</code></div>
+        <div class="tip-box"><span class="tip-label">One-time</span>This password is not stored in plaintext and cannot be retrieved again. Paste it to the student now.</div>
+      </article>
+    {% endif %}
+
+    <article class="topic-card">
+      <div class="section-h">Create user</div>
+      <form method="post" class="grid-2">
+        <label>Email <input type="email" name="email" required style="width:100%; padding:.4rem;"></label>
+        <label>Role
+          <select name="role"><option value="student">student</option><option value="admin">admin</option></select>
+        </label>
+        <label>Syllabus
+          <select name="syllabus_code">
+            <option value="">(none)</option>
+            {% for s in syllabi %}<option value="{{ s.code }}">{{ s.code }} — {{ s.name }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>&nbsp;<button type="submit" class="nav-btn active" style="width:100%;">Create + issue password</button></label>
+      </form>
+    </article>
+
+    <article class="topic-card">
+      <div class="section-h">Existing users</div>
+      <ul class="fact-list">
+        {% for u in users %}
+          <li>{{ u.email }} · <em>{{ u.role }}</em> · syllabus {{ u.syllabus_id or '—' }} · created {{ u.created_at.strftime('%Y-%m-%d') }}</li>
+        {% endfor %}
+      </ul>
+    </article>
+  </main>
+{% endblock %}

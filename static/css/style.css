@@ -3,6 +3,8 @@
    Matches the Claude widget aesthetic: flat, clean, minimal
    ========================================================= */
 
+.nav-btn.dimmed { opacity: 0.35; }
+
 /* -- Design tokens (light mode default) -- */
 :root {
   --color-background-primary: #ffffff;

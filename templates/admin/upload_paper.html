@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Admin — Upload paper{% endblock %}
+
+{% block body %}
+  <main class="container">
+    <header class="page-header">
+      <h1>Upload past paper</h1>
+      <p class="subtitle">Question paper + marking scheme PDFs. Extraction runs synchronously and populates the review queue.</p>
+    </header>
+
+    <article class="topic-card">
+      <form method="post" enctype="multipart/form-data" class="grid-2">
+        <label>Syllabus
+          <select name="syllabus_id" required>
+            {% for s in syllabi %}<option value="{{ s.id }}">{{ s.code }} — {{ s.name }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Paper
+          <select name="paper_id" required>
+            {% for p in papers %}<option value="{{ p.id }}">{{ p.syllabus.code }} P{{ p.number }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Year <input type="number" name="year" min="2000" max="2099" required></label>
+        <label>Series
+          <select name="series" required>
+            <option value="F/M">F/M (Feb/March)</option>
+            <option value="M/J">M/J (May/June)</option>
+            <option value="O/N">O/N (Oct/Nov)</option>
+          </select>
+        </label>
+        <label>Variant (1–3) <input type="number" name="variant" min="1" max="3" required></label>
+        <label>Question PDF <input type="file" name="question_pdf" accept="application/pdf" required></label>
+        <label>Marking scheme PDF <input type="file" name="scheme_pdf" accept="application/pdf" required></label>
+        <label>&nbsp;<button type="submit" class="nav-btn active" style="width:100%;">Upload + extract</button></label>
+      </form>
+      <div class="tip-box">
+        <span class="tip-label">Heads-up</span>
+        Extraction is gated by <code>FEATURE_INGESTION=1</code>. With it off, a single stub question is inserted for the review-queue UI to render.
+      </div>
+    </article>
+  </main>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Admin — Dashboard{% endblock %}
+
+{% block body %}
+  <main class="container">
+    <header class="page-header">
+      <h1>Admin</h1>
+      <p class="subtitle">Manage users, past papers, and review extractions.</p>
+    </header>
+
+    <section class="summary-grid">
+      <div class="summary-card"><div class="s-label">Users</div><div class="s-value">{{ users_count }}</div></div>
+      <div class="summary-card"><div class="s-label">Questions</div><div class="s-value">{{ questions_count }}</div></div>
+      <div class="summary-card"><div class="s-label">Pending review</div><div class="s-value">{{ pending_review }}</div></div>
+    </section>
+
+    <nav class="topic-nav">
+      <a class="nav-btn" href="{{ url_for('admin.users') }}">Users</a>
+      <a class="nav-btn" href="{{ url_for('admin.upload_paper') }}">Upload paper</a>
+      <a class="nav-btn" href="{{ url_for('admin.review_queue') }}">Review queue</a>
+      <a class="nav-btn" href="{{ url_for('admin.cost_dashboard') }}">Cost dashboard</a>
+    </nav>
+  </main>
+{% endblock %}

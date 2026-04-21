@@ -1,0 +1,9 @@
+{# HTMX partial: returned by /notes/<topic_id>/partial — drop-in replacement
+   for a .topic-card block. #}
+<article class="topic-card" data-id="{{ topic.number }}">
+  <div class="topic-header">
+    <div class="topic-num {{ topic.color_class }}">{{ topic.number }}</div>
+    <h3 class="topic-title">{{ topic.name }}</h3>
+  </div>
+  {{ note.content_html | safe }}
+</article>

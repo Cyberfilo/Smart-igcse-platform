@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Pick your syllabus{% endblock %}
+
+{% block body %}
+  <main class="container">
+    <header class="page-header">
+      <h1>Pick your syllabus</h1>
+      <p class="subtitle">Everything after this point is scoped to the syllabus you choose.</p>
+    </header>
+
+    <form method="post" class="summary-grid" style="gap: 1rem;">
+      {% for s in syllabi %}
+        <button type="submit" name="code" value="{{ s.code }}" class="summary-card" style="cursor:pointer; border:0; text-align:left;">
+          <div class="s-label">Cambridge {{ s.code }}</div>
+          <div class="s-value">{{ s.name }}</div>
+        </button>
+      {% endfor %}
+    </form>
+
+    {% if current %}
+      <p class="topic-intro" style="margin-top:2rem;">Current selection: <strong>{{ current.code }} — {{ current.name }}</strong></p>
+    {% endif %}
+  </main>
+{% endblock %}

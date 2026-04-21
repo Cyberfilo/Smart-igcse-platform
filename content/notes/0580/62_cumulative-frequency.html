@@ -1,0 +1,22 @@
+<p class="topic-intro">(Extended.) Running total of frequencies. The curve lets you read off median, quartiles, and IQR.</p>
+<div class="section-h">Building the table</div>
+<ul class="fact-list">
+  <li>Add cumulative column: running total of frequency</li>
+  <li>Plot at the UPPER boundary of each class (not midpoint)</li>
+  <li>Join with a smooth curve (or straight line) through all points</li>
+</ul>
+<div class="section-h">Reading the curve</div>
+<div class="grid-2">
+  <div class="formula-box"><span class="label">Median</span>at cumulative = n/2</div>
+  <div class="formula-box"><span class="label">Lower quartile (Q₁)</span>at cumulative = n/4</div>
+  <div class="formula-box"><span class="label">Upper quartile (Q₃)</span>at cumulative = 3n/4</div>
+  <div class="formula-box"><span class="label">IQR</span>Q₃ − Q₁</div>
+</div>
+<div class="example-box">
+  <span class="eg-label">Example</span>
+  60 students. Median at cumulative 30 → read across to find corresponding value. Q₁ at 15, Q₃ at 45. IQR = Q₃ − Q₁.
+</div>
+<div class="tip-box">
+  <span class="tip-label">"Less than" count</span>
+  To find "how many scored less than X", read UP from X on the horizontal axis to the curve. Cumulative freq at that point = count.
+</div>
