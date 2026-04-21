@@ -192,6 +192,14 @@
     if (themeIcon) themeIcon.textContent = isDark ? '◑' : '◐';
   });
 
+  // ----- Close <details> dropdowns on outside click (syllabus switcher) -----
+
+  document.addEventListener('click', (e) => {
+    document.querySelectorAll('details[open]').forEach(d => {
+      if (!d.contains(e.target)) d.open = false;
+    });
+  });
+
   // ----- Keyboard shortcuts -----
 
   document.addEventListener('keydown', (e) => {
@@ -200,6 +208,7 @@
     if (e.key === 'd' && themeToggle) themeToggle.click();
     if (e.key === 'Escape') {
       document.querySelectorAll('.chat-panel:not([hidden])').forEach(p => p.hidden = true);
+      document.querySelectorAll('details[open]').forEach(d => d.open = false);
     }
   });
 })();

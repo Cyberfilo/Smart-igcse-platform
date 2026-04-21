@@ -747,3 +747,74 @@ body.dark-mode .color-purple-alt  { background: #26215C; color: #CECBF6; }
 /* -- Full-width topnav (override body's 2rem top padding) -- */
 body { padding-top: 0; }
 .topnav { margin: 0 -1rem 1.5rem; }
+
+/* -- Syllabus switcher dropdown in topnav -- */
+.syll-dropdown {
+  position: relative;
+}
+.syll-dropdown summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.syll-dropdown summary::-webkit-details-marker { display: none; }
+.syll-caret {
+  font-size: 0.7rem;
+  color: var(--color-text-tertiary);
+  transition: transform 0.15s;
+}
+.syll-dropdown[open] .syll-caret { transform: rotate(180deg); }
+
+.syll-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 320px;
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  padding: 0.3rem;
+  z-index: 60;
+}
+.syll-option { margin: 0; display: block; }
+.syll-item {
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  transition: background 0.12s;
+}
+.syll-item:hover {
+  background: var(--color-background-secondary);
+}
+.syll-item.active {
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+}
+.syll-code {
+  font-weight: 700;
+  font-size: 0.82rem;
+  min-width: 44px;
+  letter-spacing: 0.02em;
+}
+.syll-name {
+  font-size: 0.88rem;
+  color: var(--color-text-secondary);
+}
+.syll-item.active .syll-name { color: inherit; }
+.syll-empty {
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  color: var(--color-text-tertiary);
+}

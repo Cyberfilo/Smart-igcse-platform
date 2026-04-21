@@ -37,8 +37,8 @@ def create_app(config_class: type = Config) -> Flask:
     for bp in ALL_BLUEPRINTS:
         app.register_blueprint(bp)
 
-    # Make `current_syllabus` available in every template so the topnav can
-    # show which syllabus the user is on.
+    # Make `current_syllabus` + `available_syllabi` available in every template
+    # so the topnav can render the switcher dropdown.
     @app.context_processor
     def inject_current_syllabus():
         from flask import session
@@ -47,6 +47,7 @@ def create_app(config_class: type = Config) -> Flask:
         from models import Syllabus
 
         syll = None
+        available: list = []
         try:
             if current_user.is_authenticated and current_user.syllabus_id:
                 syll = db.session.get(Syllabus, current_user.syllabus_id)
@@ -54,9 +55,10 @@ def create_app(config_class: type = Config) -> Flask:
                 code = session.get("syllabus_code")
                 if code:
                     syll = Syllabus.query.filter_by(code=code).first()
+            available = Syllabus.query.order_by(Syllabus.code).all()
         except Exception:
-            syll = None
-        return {"current_syllabus": syll}
+            pass
+        return {"current_syllabus": syll, "available_syllabi": available}
 
     # Cache-bust the stylesheet + JS using file mtime — every Railway deploy
     # overwrites the files, changing mtime, which forces browser revalidation.
