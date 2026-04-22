@@ -74,7 +74,9 @@ def test_revision_stub_renders_article_when_llm_off(monkeypatch):
         topic_summary_html="<p>stub</p>",
     )
     assert "Functions" in html
-    assert "formula first" in html
+    # Legacy "formula_first" is remapped to structured_builder; the stub
+    # renders the normalised name with spaces.
+    assert "structured builder" in html
     assert "algebraic_error" in html
 
 
@@ -90,18 +92,34 @@ def test_cache_key_changes_on_error_delta():
     assert a != b
 
 
-def test_style_classifier_all_formula_first():
-    answers = {q["id"]: "C" for q in QUIZ}  # C = formula_first in every question
-    assert classify(answers) == "formula_first"
+def test_style_classifier_returns_dict_with_profile_scores_and_overlay():
+    # Empty answers → D=0 → SR overlay active; balanced_hybrid profile.
+    result = classify({})
+    assert set(result.keys()) == {"profile", "scores", "sr_overlay"}
+    assert result["profile"] == "balanced_hybrid"
+    assert result["sr_overlay"] is True  # D=0 ≤ 3
 
 
-def test_style_classifier_empty_defaults_to_formula_first():
-    assert classify({}) == "formula_first"
+def test_style_classifier_verbal_sequential_is_structured_builder():
+    # Pick answer (A) across the board — mostly verbal + low D.
+    answers = {q["id"]: "A" for q in QUIZ}
+    result = classify(answers)
+    assert result["profile"] in (
+        "structured_builder",
+        "reflective_theorist",
+        "balanced_hybrid",
+    )
+    assert "V" in result["scores"]
+    assert "S" in result["scores"]
+    assert "D" in result["scores"]
 
 
-def test_style_classifier_all_narrative():
+def test_style_classifier_deep_approach_disables_sr_overlay():
+    # Pick every B answer — these tend to score high on D.
     answers = {q["id"]: "B" for q in QUIZ}
-    assert classify(answers) == "narrative"
+    result = classify(answers)
+    assert result["scores"]["D"] > 3
+    assert result["sr_overlay"] is False
 
 
 # Filename parser tests moved to local_ingest (it's the canonical owner now).

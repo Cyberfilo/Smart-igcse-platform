@@ -126,7 +126,16 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(16), default="student", nullable=False)  # student / admin
     syllabus_id = db.Column(db.Integer, db.ForeignKey("syllabi.id"), nullable=True)
     cohort_id = db.Column(db.Integer, db.ForeignKey("cohorts.id"), nullable=True)
-    learning_style_profile = db.Column(db.String(32), nullable=True)  # Phase 6
+    # Study-preference profile (NOT "learning style" per the research). One
+    # of the values in services.style_classifier.VALID_STYLES.
+    learning_style_profile = db.Column(db.String(40), nullable=True)
+    # Raw V/S/D dimension scores from the 14-item quiz. Kept so admins can
+    # see fine-grained positioning (e.g. strong-visual vs balanced-visual)
+    # and so the SR overlay decision is auditable.
+    learning_style_scores = db.Column(JSON, nullable=True)
+    # Self-Regulation Booster flag — set when D ≤ +3 at classification time.
+    # Triggers retrieval warm-up + weekly review scaffolds on revision notes.
+    sr_overlay = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
 
     @property

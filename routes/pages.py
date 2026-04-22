@@ -387,16 +387,21 @@ def exercise_subpart(subpart_id: int):
 @pages_bp.route("/onboarding/style", methods=["GET", "POST"])
 @student_only
 def onboarding_style():
+    """Post-quiz: classify via V/S/D scoring, store profile + scores + SR
+    overlay flag on the user, redirect to revision. Supports the step-by-step
+    UI which POSTs all 14 answers in one submission."""
     if request.method == "POST":
         answers: dict[int, str] = {}
         for q in QUIZ:
             val = request.form.get(f"q{q['id']}")
             if val:
                 answers[q["id"]] = val
-        style = classify(answers)
-        current_user.learning_style_profile = style
+
+        result = classify(answers)
+        current_user.learning_style_profile = result["profile"]
+        current_user.learning_style_scores = result["scores"]
+        current_user.sr_overlay = result["sr_overlay"]
         db.session.commit()
-        flash(f"Your revision style: {style.replace('_', ' ')}", "info")
         return redirect(url_for("pages.revision"))
     return render_template("onboarding.html", quiz=QUIZ)
 
@@ -459,6 +464,7 @@ def revision():
                 style=style,
                 error_tags=[],
                 topic_summary_html=canonical_html,
+                sr_overlay=bool(current_user.sr_overlay),
             )
             # Replace any stale row for this user/topic/style; cache_key is the
             # invalidation signal.
@@ -478,10 +484,16 @@ def revision():
         else:
             rendered.append({"topic": t, "html": cached.generated_content_html})
 
+    from services.style_classifier import PROFILE_COLORS, PROFILE_NAMES, PROFILE_TAGLINES
+
     return render_template(
         "revision.html",
         syllabus=syllabus,
         rendered=rendered,
         style=style,
-        style_labels={k: k.replace("_", " ") for k in VALID_STYLES},
+        style_labels=PROFILE_NAMES,
+        style_colors=PROFILE_COLORS,
+        style_taglines=PROFILE_TAGLINES,
+        sr_overlay=bool(current_user.sr_overlay),
+        style_scores=current_user.learning_style_scores or {},
     )

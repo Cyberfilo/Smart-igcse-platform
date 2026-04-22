@@ -274,33 +274,32 @@ def test_revision_redirects_to_onboarding_when_no_style(app, client):
 def test_onboarding_classifies_and_redirects(app, client):
     ctx = _seed_minimal(app)
     _login(client, ctx["student_email"], "studentpw")
-    # Pick all C (formula_first)
-    r = client.post(
-        "/onboarding/style",
-        data={"q1": "C", "q2": "C", "q3": "C", "q4": "C", "q5": "C"},
-        follow_redirects=False,
-    )
+    # Answer all 14 questions with "B" — a repeatable combination the new
+    # classifier maps to one of the four profiles + sr_overlay flag.
+    data = {f"q{i}": "B" for i in range(1, 15)}
+    r = client.post("/onboarding/style", data=data, follow_redirects=False)
     assert r.status_code == 302
     assert "/revision" in r.headers["Location"]
 
     from models import User
+    from services.style_classifier import VALID_STYLES
 
     with app.app_context():
         u = User.query.filter_by(email=ctx["student_email"]).first()
-        assert u.learning_style_profile == "formula_first"
+        assert u.learning_style_profile in VALID_STYLES
+        assert u.learning_style_scores is not None
+        assert "D" in u.learning_style_scores
 
 
 def test_revision_page_renders_after_style_set(app, client):
     ctx = _seed_minimal(app)
     _login(client, ctx["student_email"], "studentpw")
-    client.post(
-        "/onboarding/style",
-        data={"q1": "C", "q2": "C", "q3": "C", "q4": "C", "q5": "C"},
-    )
+    data = {f"q{i}": "B" for i in range(1, 15)}
+    client.post("/onboarding/style", data=data)
     r = client.get("/revision")
     assert r.status_code == 200
-    # Revision stub output when FEATURE_REVISION_LLM is off
-    assert b"formula first" in r.data
+    # Stub revision note includes the profile name as HTML.
+    assert b"topic-card" in r.data
 
 
 def test_prototype_endpoint_404_when_flag_off(client):

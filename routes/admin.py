@@ -156,17 +156,24 @@ def users():
 @login_required
 @admin_required
 def users_export():
-    """Download every user's credentials as CSV. Only ADMINS hit this route.
-    Users without a stored generated_password (e.g. the bootstrap admin)
-    show blank — they can reset their password from elsewhere if needed."""
+    """Download every user's credentials + study-profile data as CSV. Columns:
+    email, username, display_name, role, syllabus, password, study_profile,
+    sr_overlay, V_score, S_score, D_score. Scores are null for users who
+    haven't taken the quiz yet."""
+    from services.style_classifier import PROFILE_NAMES
+
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["email", "username", "display_name", "role", "syllabus", "password"])
+    writer.writerow([
+        "email", "username", "display_name", "role", "syllabus", "password",
+        "study_profile", "sr_overlay", "V_score", "S_score", "D_score",
+    ])
     for u in User.query.order_by(User.role, User.username).all():
         syll_code = ""
         if u.syllabus_id:
             syll = db.session.get(Syllabus, u.syllabus_id)
             syll_code = syll.code if syll else ""
+        scores = u.learning_style_scores or {}
         writer.writerow([
             u.email,
             u.username or "",
@@ -174,10 +181,14 @@ def users_export():
             u.role,
             syll_code,
             u.generated_password or "",
+            PROFILE_NAMES.get(u.learning_style_profile or "", "") or "",
+            "yes" if u.sr_overlay else "",
+            scores.get("V", ""),
+            scores.get("S", ""),
+            scores.get("D", ""),
         ])
-    csv_bytes = buf.getvalue()
     return Response(
-        csv_bytes,
+        buf.getvalue(),
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment; filename=igcse-users.csv"},
     )

@@ -3,20 +3,9 @@
 {% block title %}Revision — {{ style.replace('_', ' ') }}{% endblock %}
 
 {% block body %}
-{% set style_display = style_labels.get(style, style) %}
-{% set taglines = {
-  'schema_heavy': 'You grasp concepts best as structured maps — relationships first, details second.',
-  'narrative':    'You learn by story — the why behind each step sticks harder than the step itself.',
-  'formula_first':'You want the formula up front and minimal prose — efficiency over ceremony.',
-  'worked_example':'You learn by copying a solved problem, then varying it. Examples over definitions.'
-} %}
-{% set style_tones = {
-  'schema_heavy': 'oklch(48% 0.13 264)',
-  'narrative':    'oklch(48% 0.13 30)',
-  'formula_first':'oklch(45% 0.12 190)',
-  'worked_example':'oklch(45% 0.14 145)'
-} %}
-{% set style_color = style_tones.get(style, 'var(--indigo)') %}
+{% set style_display = style_labels.get(style, style|replace('_', ' ')) %}
+{% set style_color = style_colors.get(style, 'var(--indigo)') %}
+{% set tagline = style_taglines.get(style, '') %}
 
 <div class="ds-page ds-fade-in">
   <div class="ds-page-head">
@@ -26,7 +15,7 @@
         Hello, <em style="color:{{ style_color }}; font-style:normal;">{{ style_display }}</em>.
       </h1>
       <div class="ds-page-sub">
-        We'll re-explain topics the way you learn — {{ taglines.get(style, '') | lower }}
+        Notes shaped for your study profile — {{ tagline | lower }}
       </div>
     </div>
     <form method="post" action="{{ url_for('pages.onboarding_style') }}" style="margin:0;">
@@ -38,9 +27,20 @@
     {# Left: profile card + revision queue (from ErrorProfile + rendered list). #}
     <div class="ds-col" style="gap:14px;">
       <div class="ds-card" style="padding:18px; background:{{ style_color }}; color:var(--paper-0);">
-        <div style="font-size:11px; opacity:0.75; text-transform:uppercase; letter-spacing:0.08em;">Your learning profile</div>
+        <div style="font-size:11px; opacity:0.75; text-transform:uppercase; letter-spacing:0.08em;">Your study-preference profile</div>
         <div class="serif" style="font-size:26px; margin-top:4px; margin-bottom:8px; font-weight:500;">{{ style_display }}</div>
-        <div style="font-size:13px; opacity:0.9; line-height:1.5;">{{ taglines.get(style, '') }}</div>
+        <div style="font-size:13px; opacity:0.9; line-height:1.5;">{{ tagline }}</div>
+        {% if sr_overlay %}
+          <div style="margin-top:12px; padding:8px 10px; background:rgba(255,255,255,0.18); border-radius:6px; font-size:11.5px; line-height:1.5;">
+            <strong>SR booster active</strong> — your notes include retrieval
+            warm-ups + weekly review scaffolds.
+          </div>
+        {% endif %}
+        {% if style_scores %}
+          <div style="margin-top:10px; font-size:11px; opacity:0.7; font-family:var(--mono);">
+            V {{ style_scores.V }} · S {{ style_scores.S }} · D {{ style_scores.D }}
+          </div>
+        {% endif %}
       </div>
 
       <div class="ds-card" style="padding:0; overflow:hidden;">
