@@ -1,24 +1,24 @@
 <p class="topic-intro">Two events — multiply for "and", add for "or" (mutually exclusive). Tree diagrams make it visual.</p>
 <div class="grid-2">
-  <div class="formula-box"><span class="label">Independent (AND)</span>P(A ∩ B) = P(A) × P(B)</div>
-  <div class="formula-box"><span class="label">Exclusive (OR)</span>P(A ∪ B) = P(A) + P(B)</div>
-  <div class="formula-box"><span class="label">General OR</span>P(A ∪ B) = P(A) + P(B) − P(A ∩ B)</div>
+  <div class="formula-box"><span class="label">Independent (AND)</span>\(P(A \cap B) = P(A) \times P(B)\)</div>
+  <div class="formula-box"><span class="label">Exclusive (OR)</span>\(P(A \cup B) = P(A) + P(B)\)</div>
+  <div class="formula-box"><span class="label">General OR</span>\(P(A \cup B) = P(A) + P(B) - P(A \cap B)\)</div>
 </div>
 <div class="section-h">Tree diagrams</div>
 <ul class="fact-list">
   <li>Multiply along branches</li>
   <li>Add between branches (different paths to the same outcome)</li>
-  <li>All outcomes at the end sum to 1 — useful check</li>
+  <li>All outcomes at the end sum to \(1\) — useful check</li>
 </ul>
 <div class="example-box">
   <span class="eg-label">Example (with replacement)</span>
-  Bag: 3 red, 5 blue. Pick 2 with replacement. P(2 red) = (3/8)(3/8) = 9/64.
+  Bag: \(3\) red, \(5\) blue. Pick \(2\) with replacement. \(P(\text{2 red}) = \tfrac{3}{8} \cdot \tfrac{3}{8} = \tfrac{9}{64}\).
 </div>
 <div class="example-box">
   <span class="eg-label">Example (without replacement)</span>
-  Same bag without replacement. P(2 red) = (3/8)(2/7) = 6/56 = 3/28.
+  Same bag without replacement. \(P(\text{2 red}) = \tfrac{3}{8} \cdot \tfrac{2}{7} = \tfrac{6}{56} = \tfrac{3}{28}\).
 </div>
 <div class="tip-box">
   <span class="tip-label">Exactly one red?</span>
-  "Red then blue" + "Blue then red" = P(R)P(B) + P(B)P(R). Both paths count.
+  "Red then blue" \(+\) "Blue then red" \(= P(R)P(B) + P(B)P(R)\). Both paths count.
 </div>
