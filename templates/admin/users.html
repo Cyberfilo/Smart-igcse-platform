@@ -24,38 +24,53 @@
     {# ── Left sidebar: add form + convention helper + just-created card ── #}
     <div class="ds-col" style="gap:14px;">
       <div class="ds-card" style="padding:18px;">
-        <div class="ds-label" style="margin-bottom:10px;">Add user</div>
-        <form method="post" id="add-form" class="ds-col" style="gap:10px;">
-          <div>
-            <label class="ds-label" for="email-input" style="margin-bottom:4px;">School email</label>
-            <input id="email-input" name="email" type="email" class="ds-input"
-                   placeholder="name.surname@{{ student_domain }}" required autocomplete="off">
+        <div class="ds-label" style="margin-bottom:10px;">Add a student</div>
+        <form method="post" class="ds-col" style="gap:10px;">
+          <input type="hidden" name="role" value="student">
+          <label class="ds-label" style="margin-bottom:-2px;">Email local part</label>
+          <div style="display:flex; align-items:stretch; border:1px solid var(--paper-3); border-radius:var(--r); overflow:hidden; background:var(--paper-0);">
+            <input name="local_part" type="text" pattern="[a-z]+\.[a-z]+"
+                   placeholder="name.surname" required autocomplete="off"
+                   style="border:0; background:transparent; padding:10px 12px; font-size:14px; outline:none; flex:1; min-width:0; color:var(--ink-0);">
+            <span style="padding:0 12px; align-self:center; color:var(--ink-3); font-size:12.5px; white-space:nowrap; border-left:1px solid var(--paper-3); background:var(--paper-1);">@{{ student_domain }}</span>
           </div>
+          <select name="syllabus_code" class="ds-select" style="font-size:13px;">
+            <option value="">Default syllabus · none</option>
+            {% for s in syllabi %}
+              <option value="{{ s.code }}">{{ s.code }} · {{ s.name | replace('Cambridge IGCSE ', '') }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="ds-btn ds-btn-primary" style="justify-content:center;">Create student</button>
+        </form>
+      </div>
 
-          <div id="preview" class="ds-card" style="padding:12px; background:var(--paper-1); border-style:dashed; display:none;">
-            <div class="ds-label" style="margin-bottom:8px;">Will be created as</div>
-            <div class="ds-col" style="gap:6px; font-size:13px;">
-              <div><span style="color:var(--ink-3);">Username:</span>
-                <span class="mono" id="pv-username" style="font-weight:600;">—</span></div>
-              <div><span style="color:var(--ink-3);">Display:</span>
-                <span class="serif" id="pv-display" style="font-weight:500;">—</span></div>
-              <div><span style="color:var(--ink-3);">Role:</span>
-                <span id="pv-role" style="font-weight:500;">—</span></div>
-            </div>
+      <div class="ds-card" style="padding:18px;">
+        <div class="ds-label" style="margin-bottom:10px;">Add an admin</div>
+        <form method="post" class="ds-col" style="gap:10px;">
+          <input type="hidden" name="role" value="admin">
+          <label class="ds-label" style="margin-bottom:-2px;">Email local part</label>
+          <div style="display:flex; align-items:stretch; border:1px solid var(--paper-3); border-radius:var(--r); overflow:hidden; background:var(--paper-0);">
+            <input name="local_part" type="text" pattern="[a-z]\.[a-z]+"
+                   placeholder="n.surname" required autocomplete="off"
+                   style="border:0; background:transparent; padding:10px 12px; font-size:14px; outline:none; flex:1; min-width:0; color:var(--ink-0);">
+            <span style="padding:0 12px; align-self:center; color:var(--ink-3); font-size:12.5px; white-space:nowrap; border-left:1px solid var(--paper-3); background:var(--paper-1);">@{{ admin_domain }}</span>
           </div>
-          <div id="preview-bad" style="display:none; font-size:12px; color:var(--err);"></div>
+          <button type="submit" class="ds-btn ds-btn-primary" style="justify-content:center;">Create admin</button>
+        </form>
+      </div>
 
-          <div>
-            <label class="ds-label" for="syll-input" style="margin-bottom:4px;">Default syllabus (students only)</label>
-            <select id="syll-input" name="syllabus_code" class="ds-select">
-              <option value="">— none —</option>
-              {% for s in syllabi %}
-                <option value="{{ s.code }}">{{ s.code }} · {{ s.name | replace('Cambridge IGCSE ', '') }}</option>
-              {% endfor %}
-            </select>
+      <div class="ds-card" style="padding:18px;">
+        <div class="ds-label" style="margin-bottom:10px;">Bulk import</div>
+        <form method="post" action="{{ url_for('admin.users_bulk_import') }}" class="ds-col" style="gap:10px;">
+          <textarea name="pasted_list" class="ds-textarea" rows="6"
+            placeholder="Paste anything — names, emails, or mixed:&#10;John Smith&#10;alice.cooper@students.bdcschool.eu&#10;Mary Jane (teacher)&#10;p.jones admin" required></textarea>
+          <div style="font-size:11.5px; color:var(--ink-3); line-height:1.5;">
+            GPT standardises the list, creates the accounts, and
+            auto-downloads the credentials sheet — don't paste passwords.
           </div>
-
-          <button type="submit" class="ds-btn ds-btn-primary" style="justify-content:center;">Create user</button>
+          <button type="submit" class="ds-btn ds-btn-accent" style="justify-content:center;">
+            ✨ Import &amp; download credentials
+          </button>
         </form>
       </div>
 
@@ -155,45 +170,15 @@
 
 <script>
 (function(){
-  const email = document.getElementById('email-input');
-  const pv = document.getElementById('preview');
-  const bad = document.getElementById('preview-bad');
-  const vUsername = document.getElementById('pv-username');
-  const vDisplay = document.getElementById('pv-display');
-  const vRole = document.getElementById('pv-role');
-
-  const STUDENT_DOM = "{{ student_domain }}";
-  const ADMIN_DOM = "{{ admin_domain }}";
-
-  function parse(e) {
-    const lower = (e || "").trim().toLowerCase();
-    const stu = lower.match(/^([a-z]+\.[a-z]+)@(.+)$/);
-    if (stu && stu[2] === STUDENT_DOM) return ["student", stu[1]];
-    const adm = lower.match(/^([a-z]\.[a-z]+)@(.+)$/);
-    if (adm && adm[2] === ADMIN_DOM) return ["admin", adm[1]];
-    return null;
-  }
-  function titleCase(un) {
-    return un.split('.').map(p => p ? p[0].toUpperCase() + p.slice(1) : '').join(' ');
-  }
-
-  function update() {
-    const v = email.value;
-    if (!v) { pv.style.display = 'none'; bad.style.display = 'none'; return; }
-    const p = parse(v);
-    if (!p) {
-      pv.style.display = 'none';
-      bad.style.display = 'block';
-      bad.textContent = `Email must end with @${STUDENT_DOM} (student) or @${ADMIN_DOM} (admin).`;
-      return;
-    }
-    bad.style.display = 'none';
-    pv.style.display = 'block';
-    vUsername.textContent = p[1];
-    vDisplay.textContent = titleCase(p[1]);
-    vRole.textContent = p[0];
-  }
-  if (email) email.addEventListener('input', update);
+  // Normalise the two individual-add inputs: lowercase, strip whitespace,
+  // drop any pasted '@' suffix. Keeps the form from rejecting a user who
+  // pastes a full email by habit.
+  document.querySelectorAll('input[name="local_part"]').forEach(el => {
+    el.addEventListener('input', () => {
+      const v = el.value.toLowerCase().replace(/\s+/g, '').split('@')[0];
+      if (v !== el.value) el.value = v;
+    });
+  });
 
   const copyBtn = document.getElementById('copy-creds');
   const pwEl = document.getElementById('jc-pw');

@@ -1,19 +1,19 @@
 <p class="topic-intro">A rounded value hides a range. Bounds are the smallest/largest values that would round to it.</p>
 <div class="section-h">Finding bounds</div>
-<div class="formula-box">x rounded to the nearest 10 = 70 → 65 ≤ x &lt; 75. UB = 75, LB = 65.</div>
-<div class="formula-box">x = 4.2 to 1 dp → 4.15 ≤ x &lt; 4.25</div>
+<div class="formula-box">\(x\) rounded to the nearest \(10 = 70\) → \(65 \le x < 75\). UB \(= 75\), LB \(= 65\).</div>
+<div class="formula-box">\(x = 4.2\) to 1 dp → \(4.15 \le x < 4.25\)</div>
 <div class="section-h">Operations with bounds (Extended)</div>
 <div class="grid-2">
-  <div class="formula-box"><span class="label">Max(a + b)</span>UB(a) + UB(b)</div>
-  <div class="formula-box"><span class="label">Max(a − b)</span>UB(a) − LB(b)</div>
-  <div class="formula-box"><span class="label">Max(a × b)</span>UB(a) × UB(b)</div>
-  <div class="formula-box"><span class="label">Max(a ÷ b)</span>UB(a) ÷ LB(b)</div>
+  <div class="formula-box"><span class="label">Max(a + b)</span>\(\text{UB}(a) + \text{UB}(b)\)</div>
+  <div class="formula-box"><span class="label">Max(a − b)</span>\(\text{UB}(a) - \text{LB}(b)\)</div>
+  <div class="formula-box"><span class="label">Max(a × b)</span>\(\text{UB}(a) \times \text{UB}(b)\)</div>
+  <div class="formula-box"><span class="label">Max(a ÷ b)</span>\(\text{UB}(a) \div \text{LB}(b)\)</div>
 </div>
 <div class="example-box">
   <span class="eg-label">Example</span>
-  Length = 12 cm (2 sf): 11.5 ≤ L &lt; 12.5. Square perimeter: LB = 4 × 11.5 = 46, UB = 4 × 12.5 = 50.
+  Length \(= 12\text{ cm}\) (2 sf): \(11.5 \le L < 12.5\). Square perimeter: LB \(= 4 \times 11.5 = 46\), UB \(= 4 \times 12.5 = 50\).
 </div>
 <div class="tip-box">
   <span class="tip-label">Subtraction trap</span>
-  For a − b use UB(a) − LB(b), not UB(a) − UB(b). Flip the minuend's bound.
+  For \(a - b\) use \(\text{UB}(a) - \text{LB}(b)\), not \(\text{UB}(a) - \text{UB}(b)\). Flip the minuend's bound.
 </div>

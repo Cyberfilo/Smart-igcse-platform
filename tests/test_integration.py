@@ -202,11 +202,11 @@ def test_admin_login_and_user_creation(app, client):
     r2 = client.get("/admin/")
     assert r2.status_code == 200
 
-    # Email-based user creation: role + username are derived from the school
-    # domain + local part per routes/admin._parse_school_email.
+    # Separate student/admin add-user forms post role + local_part; the
+    # domain is inferred server-side. See routes/admin._create_user_from_parts.
     r3 = client.post(
         "/admin/users",
-        data={"email": "new.student@students.bdcschool.eu", "syllabus_code": "0580"},
+        data={"role": "student", "local_part": "new.student", "syllabus_code": "0580"},
     )
     assert r3.status_code == 200
     from models import User
@@ -216,7 +216,6 @@ def test_admin_login_and_user_creation(app, client):
         assert u is not None
         assert u.username == "new.student"
         assert u.role == "student"
-        # generated_password is stored for later CSV export.
         assert u.generated_password is not None
 
 
