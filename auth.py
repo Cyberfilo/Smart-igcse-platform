@@ -2,7 +2,7 @@
 (pbkdf2:sha256, ~260k iterations by default) — ships with Flask, no extra dep."""
 from functools import wraps
 
-from flask import abort, flash, redirect, request, url_for
+from flask import abort, redirect, request, url_for
 from flask_login import current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -29,17 +29,16 @@ def admin_required(view):
 
 
 def student_only(view):
-    """Student-only routes (notes, exercise, revision, chat, attempts).
-    Admins are NOT students — they manage the platform, they don't study it.
-    A logged-in admin hitting a student URL gets bounced to /admin.
+    """Gates the student-facing surface (notes, exercise, revision, chat,
+    attempts) behind authentication. Admins are allowed through so they
+    can preview the student UI — the pages will render with the admin's
+    own (empty) personalised data, which is enough for layout QA but not
+    for testing a specific student's flow.
     """
     @wraps(view)
     def wrapper(*args, **kwargs):
         if not current_user.is_authenticated:
             return redirect(url_for("pages.login", next=request.path))
-        if current_user.is_admin:
-            flash("Admins don't have a student view — use the admin dashboard.", "info")
-            return redirect(url_for("admin.dashboard"))
         return view(*args, **kwargs)
 
     return wrapper

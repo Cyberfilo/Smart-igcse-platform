@@ -154,13 +154,14 @@ def test_notes_partial_returns_topic_card(app, client):
     assert b"Irrationals note" in r.data
 
 
-def test_notes_partial_blocks_admin(app, client):
-    """Admin hitting a student-only endpoint gets bounced to /admin."""
+def test_notes_partial_allows_admin(app, client):
+    """Admin can preview student-facing notes. They stay logged in as admin
+    and the page renders with the admin's own (empty) personalisation — the
+    point is layout QA, not impersonation of a specific student."""
     ctx = _seed_minimal(app)
     _login(client, ctx["admin_email"], "adminpw")
     r = client.get(f"/notes/{ctx['topic_id']}/partial", follow_redirects=False)
-    assert r.status_code == 302
-    assert "/admin" in r.headers["Location"]
+    assert r.status_code == 200
 
 
 def test_admin_login_lands_on_admin_dashboard(app, client):
@@ -354,3 +355,15 @@ def test_empty_db_anon_still_goes_to_login(app, client):
     r = client.get("/", follow_redirects=False)
     assert r.status_code == 302
     assert "/login" in r.headers["Location"]
+
+
+def test_admin_can_view_student_exercise_page(app, client):
+    """After dropping the student_only admin-bounce, admin can hit /exercise."""
+    ctx = _seed_minimal(app)
+    _login(client, ctx["admin_email"], "adminpw")
+    r = client.get("/exercise", follow_redirects=False)
+    # 200 (renders picker) or 302 to syllabus picker — anything but a
+    # redirect to /admin, which was the old behaviour.
+    assert r.status_code in (200, 302)
+    if r.status_code == 302:
+        assert "/admin" not in r.headers["Location"]
