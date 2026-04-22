@@ -357,6 +357,9 @@ def test_empty_db_anon_still_goes_to_login(app, client):
     assert "/login" in r.headers["Location"]
 
 
+# --- Admin can view student-facing pages (Feature 1) ---
+
+
 def test_admin_can_view_student_exercise_page(app, client):
     """After dropping the student_only admin-bounce, admin can hit /exercise."""
     ctx = _seed_minimal(app)
@@ -482,3 +485,60 @@ def test_csv_export_includes_otp_and_current_password(app, client):
     assert "one_time_password" in header
     assert "current_password" in header
     assert "password_status" in header
+
+
+# --- Delete account (Feature 3) ---
+
+
+def test_admin_can_delete_student(app, client):
+    """Admin deletes a student → user row + their attempt rows vanish."""
+    ctx = _seed_minimal(app)
+    _create_user_via_admin(client, ctx, "to.delete")
+
+    from extensions import db
+    from models import Attempt, User
+
+    with app.app_context():
+        victim = User.query.filter_by(username="to.delete").first()
+        vid = victim.id
+        # Seed an attempt so we can verify cascade.
+        att = Attempt(
+            user_id=vid, subpart_id=ctx["subpart_id"],
+            submitted_answer="4", verdict="correct_optimal",
+        )
+        db.session.add(att)
+        db.session.commit()
+
+    _login(client, ctx["admin_email"], "adminpw")
+    r = client.post(f"/admin/users/{vid}/delete", follow_redirects=False)
+    assert r.status_code == 302
+
+    with app.app_context():
+        assert db.session.get(User, vid) is None
+        assert Attempt.query.filter_by(user_id=vid).count() == 0
+
+
+def test_admin_cannot_delete_self(app, client):
+    ctx = _seed_minimal(app)
+    _login(client, ctx["admin_email"], "adminpw")
+
+    from models import User
+
+    with app.app_context():
+        my_id = User.query.filter_by(email=ctx["admin_email"]).first().id
+
+    r = client.post(f"/admin/users/{my_id}/delete", follow_redirects=False)
+    assert r.status_code == 302
+
+    from extensions import db as _db
+
+    with app.app_context():
+        # Still there.
+        assert _db.session.get(User, my_id) is not None
+
+
+def test_delete_missing_user_404s(app, client):
+    ctx = _seed_minimal(app)
+    _login(client, ctx["admin_email"], "adminpw")
+    r = client.post("/admin/users/99999/delete", follow_redirects=False)
+    assert r.status_code == 404

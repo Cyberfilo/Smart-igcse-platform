@@ -291,6 +291,52 @@ def users_bulk_import():
     )
 
 
+@admin_bp.route("/users/<int:user_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def users_delete(user_id: int):
+    """Hard-delete a user + every row that references them. Classroom
+    rollover flow — student leaves, admin wipes the account, next year's
+    cohort reuses the name.
+
+    Guards:
+      - can't delete yourself (need a second admin to do it)
+      - can't delete the last admin (lockout risk)
+    Cascade is manual here because the User model predates cascade= on
+    the relationships, and an explicit delete order is easier to reason
+    about than fiddling with passive_deletes + ON DELETE CASCADE across
+    five separate FKs.
+    """
+    target = db.session.get(User, user_id)
+    if target is None:
+        abort(404)
+    if target.id == current_user.id:
+        # The current_user is always admin (by @admin_required). Refusing
+        # self-delete means the last logged-in admin can't accidentally
+        # lock the school out — they'd have to ask another admin to
+        # wipe them. Covers the "last admin" case too without a second
+        # check (you can only reach this route as an admin, so if you
+        # aren't the target, the target isn't the last admin).
+        flash("You can't delete your own account. Ask another admin.", "error")
+        return redirect(url_for("admin.users"))
+
+    from models import Attempt, Cohort, ErrorProfile, RateLimit, RevisionNote
+
+    # Null out any cohort that has this user as its admin so the cohort
+    # row survives (classroom metadata) while the user goes away.
+    Cohort.query.filter_by(admin_id=target.id).update({"admin_id": None})
+    # Everything keyed by user_id goes.
+    Attempt.query.filter_by(user_id=target.id).delete()
+    RevisionNote.query.filter_by(user_id=target.id).delete()
+    ErrorProfile.query.filter_by(user_id=target.id).delete()
+    RateLimit.query.filter_by(user_id=target.id).delete()
+    db.session.delete(target)
+    db.session.commit()
+
+    flash(f"Deleted {target.email}.", "success")
+    return redirect(url_for("admin.users"))
+
+
 @admin_bp.route("/users/export.csv")
 @login_required
 @admin_required

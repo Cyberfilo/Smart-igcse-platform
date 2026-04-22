@@ -122,7 +122,7 @@
       {% if users %}
         <div>
           {% for u in users %}
-            <div style="display:grid; grid-template-columns:36px 1.2fr 1.2fr 80px 60px 1fr 88px 80px; gap:12px; padding:12px 16px; border-bottom:1px solid var(--paper-2); align-items:center; font-size:13.5px;">
+            <div style="display:grid; grid-template-columns:36px 1.1fr 1fr 70px 54px 1fr 78px 80px 48px; gap:10px; padding:12px 16px; border-bottom:1px solid var(--paper-2); align-items:center; font-size:13.5px;">
               <div class="ds-avatar" style="background:linear-gradient(135deg, oklch(55% 0.12 {{ (u.email|length * 31) % 360 }}), oklch(45% 0.14 {{ ((u.email|length * 31) + 40) % 360 }}));">{{ u.initials }}</div>
               <div style="min-width:0;">
                 <div class="mono" style="font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ u.username or u.email.split('@')[0] }}</div>
@@ -169,6 +169,23 @@
                 {% endif %}
               </div>
               <div style="color:var(--ink-3); font-size:12px;">{{ u.created_at.strftime('%d %b %Y') }}</div>
+              <div>
+                {% if u.id != current_user.id %}
+                  <form method="post"
+                        action="{{ url_for('admin.users_delete', user_id=u.id) }}"
+                        style="margin:0;"
+                        onsubmit="return confirm('Delete {{ u.email }}? This removes every attempt, revision note, and profile row they own. Cannot be undone.');">
+                    <button type="submit"
+                            class="ds-btn ds-btn-ghost ds-btn-sm"
+                            title="Delete this account"
+                            style="padding:4px 8px; color:oklch(50% 0.17 25); border-color:oklch(82% 0.06 25); background:oklch(97% 0.015 25);">
+                      Delete
+                    </button>
+                  </form>
+                {% else %}
+                  <span style="color:var(--ink-4); font-size:11px;" title="You can't delete yourself.">—</span>
+                {% endif %}
+              </div>
             </div>
           {% endfor %}
         </div>
