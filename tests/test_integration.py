@@ -367,3 +367,118 @@ def test_admin_can_view_student_exercise_page(app, client):
     assert r.status_code in (200, 302)
     if r.status_code == 302:
         assert "/admin" not in r.headers["Location"]
+
+
+# --- OTP + forced rotation (Feature 2) ---
+
+
+def _create_user_via_admin(client, ctx, local_part: str, role: str = "student"):
+    """Drive the admin add-user form to exercise the real creation path
+    (which sets must_change_password=True + generated_password)."""
+    _login(client, ctx["admin_email"], "adminpw")
+    client.post(
+        "/admin/users",
+        data={"role": role, "local_part": local_part, "syllabus_code": "0580"},
+    )
+    client.post("/logout")
+
+
+def test_new_classroom_user_is_forced_to_set_password(app, client):
+    """Admin creates a student → student logs in with OTP → every non-
+    set-password URL bounces them back to the set-password form."""
+    ctx = _seed_minimal(app)
+    _create_user_via_admin(client, ctx, "force.rotate")
+
+    from models import User
+
+    with app.app_context():
+        u = User.query.filter_by(username="force.rotate").first()
+        assert u.must_change_password is True
+        otp = u.generated_password
+    assert otp  # OTP was generated
+
+    # Log in with the OTP — the before_request guard should bounce every
+    # non-allow-listed URL to the set-password form.
+    _login(client, "force.rotate@students.bdcschool.eu", otp)
+    r = client.get("/notes", follow_redirects=False)
+    assert r.status_code == 302
+    assert "/auth/set-password" in r.headers["Location"]
+
+
+def test_set_password_rotation_unlocks_routes(app, client):
+    """Posting a new password clears the flag and stores the plaintext
+    in current_password, leaving generated_password untouched as audit."""
+    ctx = _seed_minimal(app)
+    _create_user_via_admin(client, ctx, "happy.rotator")
+
+    from models import User
+
+    with app.app_context():
+        u = User.query.filter_by(username="happy.rotator").first()
+        otp = u.generated_password
+
+    _login(client, "happy.rotator@students.bdcschool.eu", otp)
+    r = client.post(
+        "/auth/set-password",
+        data={"new_password": "new-good-password-42", "confirm_password": "new-good-password-42"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 302
+
+    with app.app_context():
+        u = User.query.filter_by(username="happy.rotator").first()
+        assert u.must_change_password is False
+        assert u.current_password == "new-good-password-42"
+        # The original OTP stays as audit of what was first issued.
+        assert u.generated_password == otp
+        assert u.generated_password != u.current_password
+
+    # Normal routes should now work.
+    r2 = client.get("/notes", follow_redirects=False)
+    assert r2.status_code != 302 or "/auth/set-password" not in r2.headers.get("Location", "")
+
+
+def test_seed_admin_is_not_bounced_to_set_password(app, client):
+    """Existing admins (must_change_password=False by model default) should
+    never see the rotation screen. Ensures pre-existing rows aren't frozen
+    out when the feature ships."""
+    ctx = _seed_minimal(app)
+    _login(client, ctx["admin_email"], "adminpw")
+    r = client.get("/admin/", follow_redirects=False)
+    assert r.status_code == 200
+
+
+def test_set_password_rejects_short_password(app, client):
+    ctx = _seed_minimal(app)
+    _create_user_via_admin(client, ctx, "shortpw.guard")
+
+    from models import User
+
+    with app.app_context():
+        otp = User.query.filter_by(username="shortpw.guard").first().generated_password
+
+    _login(client, "shortpw.guard@students.bdcschool.eu", otp)
+    r = client.post(
+        "/auth/set-password",
+        data={"new_password": "abc", "confirm_password": "abc"},
+        follow_redirects=False,
+    )
+    # Rejected → 302 back to the form; flag still set.
+    assert r.status_code == 302
+    with app.app_context():
+        u = User.query.filter_by(username="shortpw.guard").first()
+        assert u.must_change_password is True
+
+
+def test_csv_export_includes_otp_and_current_password(app, client):
+    """Admin export has both the issued OTP and (once rotated) the chosen
+    password, plus a status column."""
+    ctx = _seed_minimal(app)
+    _login(client, ctx["admin_email"], "adminpw")
+    r = client.get("/admin/users/export.csv")
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    header = body.splitlines()[0]
+    assert "one_time_password" in header
+    assert "current_password" in header
+    assert "password_status" in header

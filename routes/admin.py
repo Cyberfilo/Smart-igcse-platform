@@ -103,6 +103,11 @@ def _create_user_from_parts(
         username=local_part,
         password_hash=hash_password(password),
         generated_password=password,
+        # Classroom accounts always start with forced rotation — the printed
+        # OTP should not linger past first login. Admins created via seed
+        # scripts / manual console INSERTs bypass this (column default is
+        # False) so bootstrapping stays friction-free.
+        must_change_password=True,
         role=role,
         syllabus_id=syll.id if syll else None,
     )
@@ -298,8 +303,15 @@ def users_export():
 
     buf = io.StringIO()
     writer = csv.writer(buf)
+    # Two password columns — `one_time_password` is what was printed on the
+    # credential sheet at account creation (stable audit of the original
+    # handoff); `current_password` is what the user chose at first login
+    # (null until rotation). Both are plaintext so admin can still hand out
+    # a printed recovery sheet — see models.User docstring for the
+    # closed-network tradeoff.
     writer.writerow([
-        "email", "username", "display_name", "role", "syllabus", "password",
+        "email", "username", "display_name", "role", "syllabus",
+        "one_time_password", "current_password", "password_status",
         "study_profile", "sr_overlay", "V_score", "S_score", "D_score",
     ])
     for u in User.query.order_by(User.role, User.username).all():
@@ -315,6 +327,8 @@ def users_export():
             u.role,
             syll_code,
             u.generated_password or "",
+            u.current_password or "",
+            "pending_first_login" if u.must_change_password else "rotated",
             PROFILE_NAMES.get(u.learning_style_profile or "", "") or "",
             "yes" if u.sr_overlay else "",
             scores.get("V", ""),

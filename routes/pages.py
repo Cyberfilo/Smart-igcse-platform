@@ -17,7 +17,7 @@ from flask import (
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import text
 
-from auth import student_only, verify_password
+from auth import hash_password, student_only, verify_password
 from extensions import db
 from models import (
     Attempt,
@@ -200,6 +200,44 @@ def logout():
     logout_user()
     session.pop("syllabus_code", None)
     return redirect(url_for("pages.login"))
+
+
+@pages_bp.route("/auth/set-password", methods=["GET", "POST"])
+@login_required
+def set_password():
+    """First-login password rotation. Reached automatically via the
+    before_request guard when `current_user.must_change_password` is True;
+    also reachable later if the user wants to change their password
+    voluntarily (the form is idempotent — it just rewrites the hash)."""
+    if request.method == "POST":
+        new_pw = request.form.get("new_password") or ""
+        confirm = request.form.get("confirm_password") or ""
+        if len(new_pw) < 8:
+            flash("Password must be at least 8 characters.", "error")
+            return redirect(url_for("pages.set_password"))
+        if new_pw != confirm:
+            flash("Passwords don't match.", "error")
+            return redirect(url_for("pages.set_password"))
+
+        current_user.password_hash = hash_password(new_pw)
+        # Plaintext retained so the admin can still recover the password
+        # from the CSV export. See the models.User docstring for the
+        # tradeoff. The original OTP in generated_password stays untouched
+        # — it's the audit of what was originally issued.
+        current_user.current_password = new_pw
+        current_user.must_change_password = False
+        db.session.commit()
+        flash("Password updated.", "success")
+        if current_user.is_admin:
+            return redirect(url_for("admin.dashboard"))
+        if current_user.syllabus_id:
+            return redirect(url_for("pages.notes"))
+        return redirect(url_for("pages.syllabus_select"))
+
+    return render_template(
+        "set_password.html",
+        forced=current_user.must_change_password,
+    )
 
 
 # --- Phase 4 — Exercise ---

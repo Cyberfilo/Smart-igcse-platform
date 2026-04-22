@@ -37,6 +37,34 @@ def create_app(config_class: type = Config) -> Flask:
     for bp in ALL_BLUEPRINTS:
         app.register_blueprint(bp)
 
+    @app.before_request
+    def _force_password_rotation():
+        """If an authenticated user still has `must_change_password=True`
+        (freshly issued OTP, not rotated yet), shove every request into
+        the set-password form. Allow-list: the set-password route itself,
+        logout, login, static, and media so cached images still render."""
+        from flask import redirect, request, url_for
+        from flask_login import current_user
+
+        if not current_user.is_authenticated:
+            return None
+        if not getattr(current_user, "must_change_password", False):
+            return None
+        allowed = {
+            "pages.set_password",
+            "pages.logout",
+            "pages.login",
+            "pages.health",
+            "static",
+        }
+        if request.endpoint in allowed:
+            return None
+        # Media is whitelisted because the set-password template may later
+        # inline paper-diagram assets; harmless to allow now.
+        if request.endpoint and request.endpoint.startswith("media."):
+            return None
+        return redirect(url_for("pages.set_password"))
+
     # Make `current_syllabus` + `available_syllabi` available in every template
     # so the topnav can render the switcher dropdown.
     @app.context_processor

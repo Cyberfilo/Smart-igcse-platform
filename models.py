@@ -117,12 +117,24 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False)
     username = db.Column(db.String(64), unique=True, nullable=True)  # optional, alt login + display
     password_hash = db.Column(db.String(255), nullable=False)
-    # Plaintext password retained only so the admin can export a list of
-    # credentials for a new cohort. Never shown in the admin UI (the
-    # table mask it). School is a closed network, single-admin trusts
-    # themselves — accepting the tradeoff rather than forcing password
-    # resets every time a sheet is lost.
+    # Three password fields — all for a closed-network classroom where the
+    # admin manages a small cohort and accepts plaintext-at-rest as the
+    # tradeoff for recoverable credentials. If the DB leaks, every live
+    # password leaks with it. Do not copy this pattern to a public-internet
+    # app.
+    #   generated_password : the one-time password printed on the credential
+    #                        sheet at account creation. Unchanged after the
+    #                        user rotates — kept as an audit of what was
+    #                        originally issued.
+    #   current_password   : the password the user chose on first login.
+    #                        null until rotation. Used for the admin CSV
+    #                        export so a teacher can still recover it.
+    #   must_change_password : when True, every request (except /auth/
+    #                        set-password and /logout) bounces to the
+    #                        set-password form. Flips to False on rotation.
     generated_password = db.Column(db.String(64), nullable=True)
+    current_password = db.Column(db.String(64), nullable=True)
+    must_change_password = db.Column(db.Boolean, default=False, nullable=False)
     role = db.Column(db.String(16), default="student", nullable=False)  # student / admin
     syllabus_id = db.Column(db.Integer, db.ForeignKey("syllabi.id"), nullable=True)
     cohort_id = db.Column(db.Integer, db.ForeignKey("cohorts.id"), nullable=True)

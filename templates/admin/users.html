@@ -83,8 +83,12 @@
               <span class="serif" style="font-weight:500;">{{ just_created.display_name }}</span></div>
             <div class="ds-row" style="gap:8px;"><span style="color:var(--ink-3); font-size:11.5px; width:72px;">Username</span>
               <span class="mono" style="font-weight:600; font-size:13.5px;">{{ just_created.username }}</span></div>
-            <div class="ds-row" style="gap:8px;"><span style="color:var(--ink-3); font-size:11.5px; width:72px;">Password</span>
+            <div class="ds-row" style="gap:8px;"><span style="color:var(--ink-3); font-size:11.5px; width:72px;">One-time pw</span>
               <span class="mono" style="font-weight:600; font-size:13.5px; letter-spacing:-0.3px;" id="jc-pw">{{ just_created.password }}</span></div>
+          </div>
+          <div style="color:var(--ink-3); font-size:11px; margin-top:10px; line-height:1.5;">
+            User must change this at first login — their chosen password
+            shows up in the CSV export afterward.
           </div>
           <div style="display:flex; gap:6px; margin-top:10px;">
             <button type="button" id="copy-creds" class="ds-btn ds-btn-ghost ds-btn-sm" style="flex:1; background:var(--paper-0); justify-content:center;">Copy</button>
@@ -118,7 +122,7 @@
       {% if users %}
         <div>
           {% for u in users %}
-            <div style="display:grid; grid-template-columns:36px 1.2fr 1.2fr 80px 70px 1.2fr 90px; gap:12px; padding:12px 16px; border-bottom:1px solid var(--paper-2); align-items:center; font-size:13.5px;">
+            <div style="display:grid; grid-template-columns:36px 1.2fr 1.2fr 80px 60px 1fr 88px 80px; gap:12px; padding:12px 16px; border-bottom:1px solid var(--paper-2); align-items:center; font-size:13.5px;">
               <div class="ds-avatar" style="background:linear-gradient(135deg, oklch(55% 0.12 {{ (u.email|length * 31) % 360 }}), oklch(45% 0.14 {{ ((u.email|length * 31) + 40) % 360 }}));">{{ u.initials }}</div>
               <div style="min-width:0;">
                 <div class="mono" style="font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ u.username or u.email.split('@')[0] }}</div>
@@ -153,6 +157,15 @@
                   {% endif %}
                 {% else %}
                   <span style="color:var(--ink-4); font-size:12px;">—</span>
+                {% endif %}
+              </div>
+              <div>
+                {# Password rotation status — amber dot for pending OTP,
+                   quiet dash once the user has picked their own password. #}
+                {% if u.must_change_password %}
+                  <span class="ds-badge ds-badge-amber" title="User still has the one-time password — hasn't logged in yet." style="font-size:10.5px;">Pending OTP</span>
+                {% else %}
+                  <span style="color:var(--ink-4); font-size:12px;" title="User rotated the OTP and picked their own password.">Rotated</span>
                 {% endif %}
               </div>
               <div style="color:var(--ink-3); font-size:12px;">{{ u.created_at.strftime('%d %b %Y') }}</div>
