@@ -26,6 +26,7 @@ from models import (
     PastPaper,
     Question,
     RevisionNote,
+    Session,   # SessionRow — used to look up past_paper.session_id
     SubPart,
     Syllabus,
     Topic,
