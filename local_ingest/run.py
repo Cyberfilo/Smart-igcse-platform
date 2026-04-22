@@ -160,7 +160,10 @@ def process_pair(qp_meta: PaperMeta, ms_meta: PaperMeta | None, skip_existing: b
 
     t_batch = time.time()
     results: list[tuple[dict, dict, int | None]] = []
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    # 10 parallel OpenAI calls per paper — bottleneck is GPT latency (~5s each),
+    # OpenAI rate limits (5k rpm, 2M tpm) give plenty of headroom. Higher
+    # concurrency = near-linear throughput gain up to ~15 workers.
+    with ThreadPoolExecutor(max_workers=10) as pool:
         for item in pool.map(_clean_and_tag, raw_questions):
             results.append(item)
     log.info("  cleaned %d questions in %.1fs", len(results), time.time() - t_batch)

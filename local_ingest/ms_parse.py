@@ -22,6 +22,29 @@ MS_Q_KEY_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Mark-scheme phrases that indicate the answer is graphical rather than a value
+# (paper-parsing.md §12). When matched, the correct_answer cell is a
+# rubric — not something a student types — so we flag it for the extractor.
+_DIAGRAM_PHRASES = re.compile(
+    r"""
+    \b(correct\s+(curve|graph|line|sketch|triangle|quadrilateral|pie\s+chart|
+                   box|histogram|region|image|arc|plot))\b
+    | \bimage\s+at\s*\(
+    | \bline\s+from\s*\(
+    | \bruled\s+with.*arcs?
+    | \barcs?\s+visible
+    | \bcorrect(ly)?\s+plotted
+    | \b(FT|ft)\s+(their|correct)\b.*\b(bar|point|line|region)\b
+    | \bperp(?:endicular)?[. ]+bisector
+    | \bbisector\s+of\s+angle
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _is_diagram_answer(answer: str, guidance: str) -> bool:
+    return bool(_DIAGRAM_PHRASES.search(answer) or _DIAGRAM_PHRASES.search(guidance))
+
 
 def _normalise_key(q_cell: str) -> str | None:
     if not q_cell:
@@ -85,5 +108,6 @@ def parse_ms(pdf_path: Path) -> dict[str, dict]:
                         "answer": ans_flat,
                         "marks": marks,
                         "guidance": guide_flat,
+                        "is_diagram": _is_diagram_answer(ans_flat, guide_flat),
                     }
     return answers

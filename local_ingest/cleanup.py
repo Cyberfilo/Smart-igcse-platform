@@ -45,12 +45,15 @@ def _client_singleton() -> OpenAI:
     return _client
 
 
-SYSTEM_PROMPT = """You are a meticulous IGCSE textbook editor.
+SYSTEM_PROMPT = """You are a meticulous Cambridge IGCSE textbook editor.
 
 You are given:
 - The full text of one Cambridge IGCSE exam question, extracted from the PDF
   (often with mathematical expressions split into isolated digit fragments).
 - The rendered page image(s) showing exactly how the question appears on paper.
+- Per-subpart HINT flags (slots / show_that) from the rule-based extractor
+  — they tell you how many answer blanks there are and whether it's a
+  "Show that…" prompt (which has no fill-in underscores at all).
 
 Use the images to reconstruct math correctly, then output clean HTML.
 
@@ -62,22 +65,51 @@ Rules — follow strictly:
      only there to anchor question wording.
 2. NO ANSWER BLANKS: dotted fill-in lines ('.........') NEVER appear in your
    output. Remove them entirely. Remove placeholder '$' or ' cm² ' units
-   that sit alone on an answer line.
+   that sit alone on an answer line — but if a blank carries a unit hint
+   ("....... ml"), encode that unit as a hint on the corresponding input
+   (NOT in body_html).
 3. NO MARKS IN TEXT: '[2]', '[3 marks]' NEVER appear in body_html — put the
    integer in the 'marks' field instead.
-4. NO HEADERS/FOOTERS: '© UCLES', '[Turn over]', paper codes, page numbers,
-   candidate barcodes — all skipped.
+4. NO HEADERS/FOOTERS: '© UCLES', '© Cambridge University Press & Assessment',
+   '[Turn over]', paper codes ('0580/42/M/J/24'), page numbers, candidate
+   barcodes, 'BLANK PAGE', 'Question X is printed on the next page' — all
+   skipped.
 5. SUBPART HIERARCHY: Cambridge uses (a)(b)(c) as peers and (i)(ii)(iii) as
    children. In the JSON, use flat dotted letters:
      top-level letter subparts:   "a", "b", "c"
      nested roman subparts:       "a(i)", "a(ii)", "b(i)", "b(ii)", …
-6. INPUT TYPE per leaf subpart:
+6. INPUT TYPE per leaf subpart (what the student actually writes):
    - "scalar"     = one numeric/algebraic answer (most common)
+   - "multi_cell" = several blanks in ONE sub-part (e.g. "....... ml
+                    ....... ml ....... ml" — three volumes to enter; or
+                    table cells to complete). input_count = number of
+                    blanks/cells the extractor hint says. If the hint is
+                    > 1, use "multi_cell" even if you'd otherwise pick
+                    scalar. Tables: complete the table → multi_cell.
    - "mcq"        = pick from labelled options (A/B/C/D). Populate mcq_choices.
-   - "multi_cell" = table / grid with multiple cells. input_count = cells.
+                    Table-row MCQs: each table row is an option; the option
+                    letter sits in the leftmost cell.
+   - "graphical"  = answer is a drawing/plot: "draw the graph of …",
+                    "plot these points", "sketch the curve", "mark the
+                    position", "construct the perpendicular bisector",
+                    "shade the region", "draw a best-fit line". These can't
+                    be marked digitally — set input_count = 0.
    - "none"       = container with no direct input (e.g. "(a)" that wraps
                     "(i)(ii)(iii)"). input_count = 0.
-7. PRESERVE WORDING: only fix formatting. Do not paraphrase, do not shorten.
+7. "SHOW THAT…" sub-parts: when the hint says show_that=true, or the body
+   starts with "Show that", set input_type="scalar" BUT input_count=0 — the
+   student writes working in blank space, there's nothing to grade digitally.
+   Preserve the full target statement (e.g. "Show that the probability is
+   \\(\\frac{3}{38}\\).") in body_html.
+8. PRESERVE WORDING: only fix formatting. Do not paraphrase, do not shorten.
+9. UNICODE: use proper characters — ≤ ≥ ≠ ± × ÷ − (true minus) · × ° √
+   π λ θ Ω μ → ⇌ ↑ ↓. For 0580 set-theory notation ξ is the universal set
+   (Greek lower-case xi, U+03BE). A′ = A complement. Bold italic vectors
+   like AB in geometry.
+10. CHEMISTRY: subscripts/superscripts in formulas (H₂O, CO₂, H₂SO₄, Na⁺,
+    Cu²⁺, CO₃²⁻) — use real Unicode sub/super characters, not HTML <sub>/
+    <sup>, so they survive copy-paste. For half-equations / state symbols:
+    "NaCl(s)", "CO₂(g)", "H₂O(l)", "H⁺(aq)".
 
 Output JSON schema (strict — no prose, no markdown fences):
 
@@ -87,17 +119,17 @@ Output JSON schema (strict — no prose, no markdown fences):
     {
       "letter": "a",
       "body_html": "<p>Clean question text with \\\\(math\\\\) in MathJax.</p>",
-      "input_type": "scalar",
+      "input_type": "scalar|multi_cell|mcq|graphical|none",
       "input_count": 1,
-      "mcq_choices": null,
+      "mcq_choices": [{"id": "A", "html": "..."}, ...] or null,
       "marks": 2
     }
   ],
   "total_marks": 7
 }
 
-If the raw question has no subparts, emit ONE subpart with letter='a' carrying
-the whole question body."""
+If the raw question has no subparts, emit ONE subpart with letter='a'
+carrying the whole question body."""
 
 
 def _render_page_jpeg(pdf_path: Path, page_1indexed: int) -> bytes:
@@ -112,6 +144,18 @@ def _render_page_jpeg(pdf_path: Path, page_1indexed: int) -> bytes:
 
 
 def _render_raw_question(raw_q: dict) -> str:
+    """Flatten question+parts+subparts into an annotated prompt payload.
+    Each leaf includes [slots=N] and [show_that] markers derived by the
+    rule-based extractor — these are reliable hints for input_count + type."""
+    def hints(leaf: dict) -> str:
+        parts: list[str] = []
+        slots = leaf.get("slot_count")
+        if slots and slots > 1:
+            parts.append(f"slots={slots}")
+        if leaf.get("show_that"):
+            parts.append("show_that")
+        return f"  [{', '.join(parts)}]" if parts else ""
+
     lines: list[str] = []
     stem = raw_q.get("stem", "").strip()
     if stem:
@@ -119,11 +163,13 @@ def _render_raw_question(raw_q: dict) -> str:
     for p in raw_q.get("parts", []):
         ptext = p.get("text", "").strip()
         pmarks = p.get("marks")
-        lines.append(f"  {p['part']} {ptext}" + (f"  [{pmarks}]" if pmarks else ""))
+        suffix = (f"  [{pmarks}]" if pmarks else "") + hints(p)
+        lines.append(f"  {p['part']} {ptext}{suffix}")
         for s in p.get("subparts", []):
             stext = s.get("text", "").strip()
             smarks = s.get("marks")
-            lines.append(f"    {s['sub']} {stext}" + (f"  [{smarks}]" if smarks else ""))
+            ssuffix = (f"  [{smarks}]" if smarks else "") + hints(s)
+            lines.append(f"    {s['sub']} {stext}{ssuffix}")
     return "\n".join(lines)
 
 

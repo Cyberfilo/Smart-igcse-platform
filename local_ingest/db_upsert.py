@@ -168,10 +168,19 @@ def upsert_question(
         correct_answer: Any = None
         marking_alts: list = []
         if ms_row:
-            correct_answer = ms_row.get("answer") or None
             guidance = ms_row.get("guidance") or ""
-            if guidance:
-                marking_alts = [{"gate": "guidance", "condition": guidance}]
+            # If the MS says this answer is a diagram/plot, override the
+            # cleanup layer's guess to "graphical" and leave correct_answer
+            # null — there's nothing to auto-mark.
+            if ms_row.get("is_diagram"):
+                schema = "graphical"
+                if guidance:
+                    marking_alts = [{"gate": "diagram_rubric", "condition":
+                                     (ms_row.get("answer") or "") + " " + guidance}]
+            else:
+                correct_answer = ms_row.get("answer") or None
+                if guidance:
+                    marking_alts = [{"gate": "guidance", "condition": guidance}]
             if marks is None and ms_row.get("marks"):
                 marks = ms_row["marks"]
 

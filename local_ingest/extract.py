@@ -88,6 +88,21 @@ LETTER_PART_RE = re.compile(r"^\(([a-z])\)$")
 ROMAN_PART_RE = re.compile(r"^\(([ivx]+)\)$")
 MARKS_RE = re.compile(r"\[\s*(\d+)\s*\]")
 
+# "....... ml ....... ml ....... ml [3]" = three answer blanks in one sub-part.
+# Treat as input_count=N so the cleanup layer emits N fields instead of 1.
+# Research ref: paper-parsing.md §4, §19.
+MULTI_SLOT_RE = re.compile(r"(?:\.{3,}[^\[\n]{0,40}){2,5}\s*\[\d+\]")
+
+# "Show that …" sub-parts have NO dotted underscores — just blank workspace + [N].
+# Don't strip "dots" on these; leave the text intact so the cleanup layer sees the prompt.
+SHOW_THAT_RE = re.compile(r"\bshow\s+that\b", re.IGNORECASE)
+
+# 0580 stats tables encode ≤/≥ as literal G/H in Frutiger subset fonts.
+# Only apply inside contexts that look numeric-interval: "0  <num>  X  <num>".
+# Research ref: paper-parsing.md §6 "Known corruption".
+_LEQ_FIX_RE = re.compile(r"(\d)\s*G\s*(?=\d)")
+_GEQ_FIX_RE = re.compile(r"(\d)\s*H\s*(?=\d)")
+
 # Noise patterns — stripped from every line before segmentation.
 FOOTER_PATTERNS = [
     re.compile(r"©\s*UCLES", re.I),
@@ -127,6 +142,45 @@ def _strip_dotted(text: str) -> str:
     return re.sub(r"\s+", " ", t).strip()
 
 
+def _post_process_chars(text: str) -> str:
+    """G↔≤ / H↔≥ fix inside detected numeric-interval contexts. See paper-parsing.md §6."""
+    t = _LEQ_FIX_RE.sub(r"\1 ≤ ", text)
+    t = _GEQ_FIX_RE.sub(r"\1 ≥ ", t)
+    return t
+
+
+_FORMULA_SHEET_MARKERS = re.compile(
+    r"\b(list of formulas?|formul[ae] sheet|you may use the following formul[ae])\b",
+    re.IGNORECASE,
+)
+
+
+def _is_formula_sheet_page(page) -> bool:
+    """Heuristic: page is a formula sheet when it contains the marker text
+    AND doesn't contain a top-level question number in the usual spot."""
+    try:
+        text = page.extract_text(x_tolerance=2, y_tolerance=3) or ""
+    except Exception:
+        return False
+    if _FORMULA_SHEET_MARKERS.search(text):
+        return True
+    # Fallback: dense equations at top of page, no bold "1" at left margin.
+    return False
+
+
+def _first_content_page(pdf) -> int:
+    """Return the 0-indexed page where questions start. Skips cover (always
+    page 0) and optionally a formula sheet on page 1 (0580 P4 May/June + Oct/Nov;
+    NOT Feb/March). Detected dynamically via marker text rather than hardcoded
+    per paper number — Feb/March P4 papers don't have the formula sheet, so
+    any static rule misclassifies them."""
+    if pdf.pages:
+        # Page 0 is cover on every CAIE paper.
+        if len(pdf.pages) > 1 and _is_formula_sheet_page(pdf.pages[1]):
+            return 2
+    return 1
+
+
 def _extend_bbox(q: dict, line_words: list[dict], page_idx: int) -> None:
     if page_idx not in q["pages"]:
         q["pages"].append(page_idx)
@@ -145,8 +199,14 @@ def parse_qp(pdf_path: Path) -> list[dict]:
       {"q": "1", "stem": "...", "parts": [...], "pages": [2,3],
        "bbox": [x0,y0,x1,y1], "total_marks": 8}
 
-    Each part: {"part": "(a)", "text": "...", "marks": 2, "subparts": [...]}
-    Each subpart: {"sub": "(i)", "text": "...", "marks": 1}
+    Each part: {"part": "(a)", "text": "...", "marks": 2, "subparts": [...],
+                "slot_count": 1, "show_that": False}
+    Each subpart: {"sub": "(i)", "text": "...", "marks": 1,
+                   "slot_count": 1, "show_that": False}
+
+    slot_count > 1 indicates multi-blank sub-parts ("....... ml ....... ml [3]")
+    so the cleanup layer knows to render N inputs. show_that suppresses dotted-
+    line artefacts — those questions just have blank workspace + [N].
     """
     questions: list[dict] = []
     current: dict | None = None
@@ -154,7 +214,11 @@ def parse_qp(pdf_path: Path) -> list[dict]:
     current_sub: dict | None = None
 
     with pdfplumber.open(pdf_path) as pdf:
+        # Detect whether page 1 is a formula sheet or straight into Q1.
+        first_page = _first_content_page(pdf)
         for page_idx, page in enumerate(pdf.pages, start=1):
+            if page_idx - 1 < first_page:
+                continue
             words = page.extract_words(x_tolerance=2, y_tolerance=3, keep_blank_chars=False)
             if not words:
                 continue
@@ -238,19 +302,35 @@ def parse_qp(pdf_path: Path) -> list[dict]:
                         current["stem"] += " " + line_text
                     _extend_bbox(current, line_words, page_idx)
 
-    # Post-process: strip trailing [N] markers from text fields, compute totals.
+    # Post-process: strip trailing [N] markers, apply G↔≤ / H↔≥ fix, annotate
+    # multi-slot + show-that flags, compute totals.
+    def _annotate(leaf: dict) -> None:
+        raw_text = leaf.get("text", "")
+        # Slot count BEFORE stripping marks/dots — the regex needs the [N] anchor.
+        m = MULTI_SLOT_RE.search(raw_text)
+        slots = 1
+        if m:
+            # Count dot-runs inside the matched span.
+            dot_groups = re.findall(r"\.{3,}", m.group(0))
+            slots = max(1, len(dot_groups))
+        leaf["slot_count"] = slots
+        leaf["show_that"] = bool(SHOW_THAT_RE.search(raw_text))
+        # Clean the text: marks + character post-process. Dotted-strip was
+        # already done at line-ingest time; don't repeat it here.
+        leaf["text"] = _post_process_chars(_strip_marks(raw_text))
+
     for q in questions:
-        q["stem"] = _strip_marks(q.get("stem", ""))
+        q["stem"] = _post_process_chars(_strip_marks(q.get("stem", "")))
         for p in q["parts"]:
-            p["text"] = _strip_marks(p["text"])
+            _annotate(p)
             for s in p["subparts"]:
-                s["text"] = _strip_marks(s["text"])
+                _annotate(s)
         total = 0
         for p in q["parts"]:
             if p["subparts"]:
-                total += sum((s["marks"] or 0) for s in p["subparts"])
+                total += sum((s.get("marks") or 0) for s in p["subparts"])
             else:
-                total += p["marks"] or 0
+                total += p.get("marks") or 0
         q["total_marks"] = total
     return questions
 
