@@ -1,9 +1,14 @@
 """Admin dashboard routes (Phase 2, 3, 8)."""
 from __future__ import annotations
 
+import os
 import secrets
+import subprocess
+import sys
+import zipfile
+from pathlib import Path
 
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from auth import admin_required, hash_password
@@ -185,6 +190,150 @@ def review_question(question_id: int):
 
     topics = Topic.query.order_by(Topic.number).all()
     return render_template("admin/review_question.html", question=q, topics=topics)
+
+
+# --- Phase 8 — cost dashboard ---
+
+
+# --- Phase 3 — bulk PDF ingestion ---
+
+
+@admin_bp.route("/ingest", methods=["GET"])
+@login_required
+@admin_required
+def ingest_home():
+    """Upload form + progress view for the bulk past-paper ingestion flow."""
+    log_path = Path(os.environ.get("INGEST_LOG_PATH", "/data/ingest.log"))
+    last_lines: list[str] = []
+    if log_path.exists():
+        try:
+            with log_path.open("r", errors="replace") as fh:
+                # Cheap tail — read last ~8KB and split.
+                fh.seek(0, os.SEEK_END)
+                size = fh.tell()
+                fh.seek(max(0, size - 8192))
+                last_lines = fh.read().splitlines()[-40:]
+        except OSError:
+            pass
+
+    papers_root = Path(current_app.config["PAST_PAPERS_DIR"])
+    pdf_count = 0
+    if papers_root.exists():
+        try:
+            pdf_count = sum(1 for _ in papers_root.rglob("*.pdf"))
+        except OSError:
+            pdf_count = 0
+
+    return render_template(
+        "admin/ingest.html",
+        pdf_count=pdf_count,
+        papers_root=str(papers_root),
+        questions_count=Question.query.count(),
+        subparts_count=SubPart.query.count(),
+        pending_review=Question.query.filter_by(extraction_status="auto").count(),
+        log_tail="\n".join(last_lines),
+    )
+
+
+@admin_bp.route("/ingest/upload", methods=["POST"])
+@login_required
+@admin_required
+def ingest_upload():
+    """Accepts past_papers.zip, extracts under PAST_PAPERS_DIR. The zip can be
+    either flat (PDFs at top level) or include nested folders — the ingestion
+    walker is recursive, so both work. Only *.pdf members are extracted;
+    path-traversal entries (absolute paths, '..') are rejected per member."""
+    file = request.files.get("zipfile")
+    if file is None or file.filename == "":
+        flash("No zip file attached.", "error")
+        return redirect(url_for("admin.ingest_home"))
+
+    target = Path(current_app.config["PAST_PAPERS_DIR"])
+    target.mkdir(parents=True, exist_ok=True)
+
+    extracted = 0
+    skipped = 0
+    try:
+        with zipfile.ZipFile(file.stream) as zf:
+            for member in zf.infolist():
+                name = member.filename
+                if member.is_dir():
+                    continue
+                if not name.lower().endswith(".pdf"):
+                    skipped += 1
+                    continue
+                # Reject path-traversal or absolute entries.
+                norm = os.path.normpath(name)
+                if norm.startswith("..") or os.path.isabs(norm):
+                    skipped += 1
+                    continue
+                dest = target / norm
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                with zf.open(member) as src, dest.open("wb") as out:
+                    # Stream in 1 MiB chunks to keep RAM flat on a 260 MB zip.
+                    while True:
+                        chunk = src.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        out.write(chunk)
+                extracted += 1
+    except zipfile.BadZipFile:
+        flash("That file isn't a valid zip.", "error")
+        return redirect(url_for("admin.ingest_home"))
+
+    flash(
+        f"Extracted {extracted} PDF(s) into {target} (skipped {skipped} non-PDF entries).",
+        "success",
+    )
+    return redirect(url_for("admin.ingest_home"))
+
+
+@admin_bp.route("/ingest/run", methods=["POST"])
+@login_required
+@admin_required
+def ingest_run():
+    """Fallback trigger for the web service — spawns a detached subprocess.
+    The canonical path is the dedicated Railway worker service, but this is
+    handy for local dev and for kicking a one-off rerun without a redeploy.
+    Subprocess is idempotent + resumable (see scripts/ingest_papers.py)."""
+    pilot = request.form.get("pilot") == "1"
+    syllabus = request.form.get("syllabus") or None
+
+    cmd: list[str] = [sys.executable, "-m", "scripts.ingest_papers"]
+    if pilot:
+        cmd.append("--pilot")
+    if syllabus in ("0580", "0654"):
+        cmd.extend(["--syllabus", syllabus])
+
+    log_path = Path(os.environ.get("INGEST_LOG_PATH", "/data/ingest.log"))
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_fh = log_path.open("a")
+    try:
+        subprocess.Popen(
+            cmd,
+            stdout=log_fh,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,  # detach — survives gunicorn worker recycling
+        )
+    finally:
+        # Popen duplicates the fd; close ours so the handle is owned by the child.
+        log_fh.close()
+
+    flash(f"Ingestion kicked off ({' '.join(cmd)}). Refresh to watch progress.", "info")
+    return redirect(url_for("admin.ingest_home"))
+
+
+@admin_bp.route("/ingest/progress", methods=["GET"])
+@login_required
+@admin_required
+def ingest_progress():
+    """JSON progress endpoint — for a polling UI / external monitoring."""
+    return jsonify(
+        questions=Question.query.count(),
+        subparts=SubPart.query.count(),
+        pending_review=Question.query.filter_by(extraction_status="auto").count(),
+        past_papers=PastPaper.query.count(),
+    )
 
 
 # --- Phase 8 — cost dashboard ---

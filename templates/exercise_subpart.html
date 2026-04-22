@@ -6,7 +6,20 @@
   <main class="container">
     <header class="page-header">
       <h1>Question {{ question.question_number }}({{ subpart.letter }})</h1>
-      <p class="subtitle">{{ subpart.marks or '–' }} marks</p>
+      <p class="subtitle">
+        {{ subpart.marks or '–' }} marks
+        {% if past_paper and session_row %}
+          · {{ syllabus.code if syllabus is defined else past_paper.syllabus_id }}
+          · Paper {{ paper.number if paper else past_paper.paper_id }}V{{ past_paper.variant }}
+          · {{ session_row.series }} {{ session_row.year }}
+        {% endif %}
+      </p>
+      {% if practice_mode and progress %}
+        <div class="topic-intro" style="margin-top:.4rem;">
+          Practice: {{ progress.answered }} / {{ progress.total }} done
+          · {{ progress.correct }} correct
+        </div>
+      {% endif %}
     </header>
 
     <article class="topic-card">
@@ -37,10 +50,25 @@
           <button type="submit" class="nav-btn">Upload + diagnose</button>
         </form>
       {% else %}
-        <p class="topic-intro">This sub-part ({{ subpart.answer_schema }}) isn't wired for digital input yet.</p>
+        <p class="topic-intro">
+          This sub-part ({{ subpart.answer_schema }}) isn't wired for digital input yet.
+        </p>
       {% endif %}
 
       <div id="result"></div>
+
+      {% if practice_mode and paper %}
+        <div id="next-nav" style="margin-top:1rem; display:none; gap:.6rem; flex-wrap:wrap;">
+          <a class="nav-btn active"
+             href="{{ url_for('pages.exercise_paper_next', paper_id=paper.id) }}">
+            Next question →
+          </a>
+          <a class="nav-btn"
+             href="{{ url_for('pages.exercise_paper_end', paper_id=paper.id) }}">
+            End practice
+          </a>
+        </div>
+      {% endif %}
     </article>
   </main>
 {% endblock %}
@@ -51,6 +79,7 @@
       const form = document.getElementById('attempt-form');
       const photoForm = document.getElementById('photo-form');
       const result = document.getElementById('result');
+      const nextNav = document.getElementById('next-nav');
 
       async function submitAnswer(answer) {
         const r = await fetch('/attempt/{{ subpart.id }}', {
@@ -67,8 +96,16 @@
         const klass = data.verdict === 'correct_optimal' ? 'tip-box'
           : data.verdict === 'correct_suboptimal' ? 'tip-box'
           : 'example-box';
-        const label = data.verdict === 'correct_optimal' ? 'Correct' : data.verdict === 'correct_suboptimal' ? 'Correct — faster way available' : 'Not quite';
+        const label = data.verdict === 'correct_optimal' ? 'Correct'
+          : data.verdict === 'correct_suboptimal' ? 'Correct — faster way available'
+          : 'Not quite';
         result.innerHTML = `<div class="${klass}"><span class="eg-label">${label}</span>${data.feedback_html || ''}</div>`;
+        if (nextNav) {
+          nextNav.style.display = 'flex';
+        }
+        // Lock the form to prevent double-submits.
+        if (form) Array.from(form.elements).forEach(el => el.disabled = true);
+        if (photoForm) Array.from(photoForm.elements).forEach(el => el.disabled = true);
       }
 
       if (form) {
@@ -82,7 +119,8 @@
           } else {
             answer = form.querySelector('input[name=scalar]').value;
           }
-          document.getElementById('photo-answer') && (document.getElementById('photo-answer').value = answer);
+          const photoAnswerEl = document.getElementById('photo-answer');
+          if (photoAnswerEl) photoAnswerEl.value = answer;
           submitAnswer(answer);
         });
       }
@@ -96,6 +134,14 @@
           renderResult(data);
         });
       }
+
+      // Keyboard shortcut: pressing Enter (or 'N') on result jumps to next.
+      document.addEventListener('keydown', (e) => {
+        if (nextNav && nextNav.style.display !== 'none' && (e.key === 'Enter' || e.key.toLowerCase() === 'n')) {
+          const link = nextNav.querySelector('a.active');
+          if (link) window.location.href = link.href;
+        }
+      });
     })();
   </script>
 {% endblock %}

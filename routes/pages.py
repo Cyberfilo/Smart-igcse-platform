@@ -202,6 +202,39 @@ def logout():
 
 
 # --- Phase 4 — Exercise ---
+#
+# Per-paper random-across-sessions practice flow:
+#   /exercise                               → paper picker (P2 / P4 / P6)
+#   /exercise/paper/<paper_id>/start        → POST, resets practice session
+#   /exercise/paper/<paper_id>/next         → GET, random unanswered SubPart
+#   /exercise/paper/<paper_id>/end          → GET, summary screen
+#   /exercise/subpart/<id>                  → GET, direct render (kept for deep-link)
+#
+# Session state lives under session['practice'][paper_id] and tracks
+# answered subpart ids + correct count — no schema change needed.
+
+from sqlalchemy import func
+
+
+def _practice_state(paper_id: int) -> dict:
+    all_state = session.setdefault("practice", {})
+    # JSON session keys are strings — normalise to int via str cast.
+    key = str(paper_id)
+    state = all_state.get(key)
+    if state is None:
+        state = {"answered": [], "correct": 0}
+        all_state[key] = state
+        session.modified = True
+    return state
+
+
+def _record_attempt_in_practice(paper_id: int, subpart_id: int, correct: bool) -> None:
+    state = _practice_state(paper_id)
+    if subpart_id not in state["answered"]:
+        state["answered"].append(subpart_id)
+        if correct:
+            state["correct"] += 1
+        session.modified = True
 
 
 @pages_bp.route("/exercise")
@@ -210,9 +243,126 @@ def exercise_select():
     syllabus = _current_syllabus()
     if syllabus is None:
         return redirect(url_for("pages.syllabus_select"))
-    topics = Topic.query.filter_by(syllabus_id=syllabus.id).order_by(Topic.number).all()
-    papers = Paper.query.filter_by(syllabus_id=syllabus.id).order_by(Paper.number).all()
-    return render_template("exercise_select.html", syllabus=syllabus, topics=topics, papers=papers)
+    papers = (
+        Paper.query.filter_by(syllabus_id=syllabus.id)
+        .order_by(Paper.number)
+        .all()
+    )
+    # Per-paper subpart availability so the picker can show counts + disable
+    # papers with zero questions.
+    availability: dict[int, int] = {}
+    for p in papers:
+        count = (
+            db.session.query(func.count(SubPart.id))
+            .join(Question, SubPart.question_id == Question.id)
+            .join(PastPaper, Question.past_paper_id == PastPaper.id)
+            .filter(PastPaper.paper_id == p.id)
+            .scalar()
+        )
+        availability[p.id] = int(count or 0)
+    return render_template(
+        "exercise_select.html",
+        syllabus=syllabus,
+        papers=papers,
+        availability=availability,
+    )
+
+
+@pages_bp.route("/exercise/paper/<int:paper_id>/start", methods=["POST"])
+@student_only
+def exercise_paper_start(paper_id: int):
+    paper = db.session.get(Paper, paper_id)
+    if paper is None:
+        abort(404)
+    # Reset this paper's practice state.
+    session.setdefault("practice", {})[str(paper_id)] = {"answered": [], "correct": 0}
+    session.modified = True
+    return redirect(url_for("pages.exercise_paper_next", paper_id=paper_id))
+
+
+@pages_bp.route("/exercise/paper/<int:paper_id>/next")
+@student_only
+def exercise_paper_next(paper_id: int):
+    paper = db.session.get(Paper, paper_id)
+    if paper is None:
+        abort(404)
+
+    state = _practice_state(paper_id)
+    answered_ids = state["answered"] or [0]  # SQL NOT IN needs non-empty
+
+    # Random SubPart where question.past_paper.paper_id == paper_id, excluding
+    # already-answered in this practice session. Cross-session randomisation is
+    # automatic: any qp for this paper is in the pool.
+    #   NOTE: we only surface schemas we can mark digitally — scalar + mcq.
+    #   multi_cell and graphical render a static message; skip them in the
+    #   random pool so the Next button doesn't serve a dead end.
+    subpart = (
+        db.session.query(SubPart)
+        .join(Question, SubPart.question_id == Question.id)
+        .join(PastPaper, Question.past_paper_id == PastPaper.id)
+        .filter(PastPaper.paper_id == paper_id)
+        .filter(SubPart.answer_schema.in_(("scalar", "mcq")))
+        .filter(~SubPart.id.in_(answered_ids))
+        .order_by(func.random())
+        .first()
+    )
+
+    if subpart is None:
+        # Pool exhausted for this paper (or empty from the start).
+        return redirect(url_for("pages.exercise_paper_end", paper_id=paper_id))
+
+    question = subpart.question
+    past_paper = question.past_paper if hasattr(question, "past_paper") else (
+        db.session.get(PastPaper, question.past_paper_id)
+    )
+    session_row = db.session.get(Session, past_paper.session_id) if past_paper else None
+    total_in_pool = (
+        db.session.query(func.count(SubPart.id))
+        .join(Question, SubPart.question_id == Question.id)
+        .join(PastPaper, Question.past_paper_id == PastPaper.id)
+        .filter(PastPaper.paper_id == paper_id)
+        .filter(SubPart.answer_schema.in_(("scalar", "mcq")))
+        .scalar()
+    )
+    progress = {
+        "answered": len(state["answered"]),
+        "correct": state["correct"],
+        "total": int(total_in_pool or 0),
+    }
+    return render_template(
+        "exercise_subpart.html",
+        subpart=subpart,
+        question=question,
+        paper=paper,
+        past_paper=past_paper,
+        session_row=session_row,
+        progress=progress,
+        practice_mode=True,
+    )
+
+
+@pages_bp.route("/exercise/paper/<int:paper_id>/end")
+@student_only
+def exercise_paper_end(paper_id: int):
+    paper = db.session.get(Paper, paper_id)
+    if paper is None:
+        abort(404)
+    state = _practice_state(paper_id)
+    total_in_pool = (
+        db.session.query(func.count(SubPart.id))
+        .join(Question, SubPart.question_id == Question.id)
+        .join(PastPaper, Question.past_paper_id == PastPaper.id)
+        .filter(PastPaper.paper_id == paper_id)
+        .filter(SubPart.answer_schema.in_(("scalar", "mcq")))
+        .scalar()
+    )
+    return render_template(
+        "exercise_end.html",
+        paper=paper,
+        answered=len(state["answered"]),
+        correct=state["correct"],
+        total=int(total_in_pool or 0),
+    )
 
 
 @pages_bp.route("/exercise/subpart/<int:subpart_id>")
@@ -222,7 +372,12 @@ def exercise_subpart(subpart_id: int):
     if sp is None:
         abort(404)
     question = sp.question
-    return render_template("exercise_subpart.html", subpart=sp, question=question)
+    return render_template(
+        "exercise_subpart.html",
+        subpart=sp,
+        question=question,
+        practice_mode=False,
+    )
 
 
 # --- Phase 6 — Onboarding + Revision ---

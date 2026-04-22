@@ -1,34 +1,54 @@
 {% extends "base.html" %}
 
-{% block title %}Exercise — pick a question{% endblock %}
+{% block title %}Exercise — pick a paper{% endblock %}
 
 {% block body %}
   <main class="container">
     <header class="page-header">
       <h1>Exercise</h1>
-      <p class="subtitle">Pick a topic then a sub-part to start.</p>
+      <p class="subtitle">
+        Pick a paper. You'll get random questions of that type —
+        different years and sessions mixed together, one at a time.
+      </p>
     </header>
 
-    <h2 class="module-heading">Topics</h2>
-    <nav class="topic-nav">
-      {% for t in topics %}
-        <a class="nav-btn" href="{{ url_for('pages.exercise_select') }}?topic={{ t.id }}">{{ t.short_name or t.name }}</a>
-      {% endfor %}
-    </nav>
-
-    <h2 class="module-heading">Papers</h2>
     <div class="summary-grid">
       {% for p in papers %}
-        <div class="summary-card">
-          <div class="s-label">Paper</div>
-          <div class="s-value">P{{ p.number }}{% if p.supports_digital_input %} (digital){% endif %}</div>
-        </div>
+        {% set count = availability.get(p.id, 0) %}
+        <form method="post"
+              action="{{ url_for('pages.exercise_paper_start', paper_id=p.id) }}"
+              class="summary-card"
+              style="display:flex; flex-direction:column; gap:.5rem; align-items:flex-start;">
+          <div>
+            <div class="s-label">{{ syllabus.code }}</div>
+            <div class="s-value">
+              Paper {{ p.number }}{% if p.supports_digital_input %}
+                <span class="pill">digital</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="topic-intro" style="margin:0;">
+            {{ count }} question{{ '' if count == 1 else 's' }} available
+          </div>
+          <button type="submit" class="nav-btn {% if count %}active{% endif %}"
+                  {% if not count %}disabled{% endif %}>
+            {% if count %}Start practice{% else %}No questions yet{% endif %}
+          </button>
+        </form>
       {% endfor %}
     </div>
 
-    <aside class="strategy-box">
-      <div class="section-h" style="margin-top:0;">Available sub-parts</div>
-      <p class="topic-intro">(Questions populate once the admin approves a past paper in <code>/admin/review</code>.)</p>
-    </aside>
+    {% if not papers %}
+      <aside class="strategy-box">
+        <p class="topic-intro">No papers seeded for this syllabus yet.</p>
+      </aside>
+    {% elif availability.values() | sum == 0 %}
+      <aside class="strategy-box">
+        <div class="section-h" style="margin-top:0;">Waiting for ingestion</div>
+        <p class="topic-intro">
+          Once the admin runs the past-paper ingestion, questions will appear here.
+        </p>
+      </aside>
+    {% endif %}
   </main>
 {% endblock %}

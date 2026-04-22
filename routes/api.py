@@ -2,7 +2,7 @@
 pages — kept separate so Phase 1's notes-partial pattern is obvious."""
 from __future__ import annotations
 
-from flask import Blueprint, abort, jsonify, render_template, request
+from flask import Blueprint, abort, jsonify, render_template, request, session
 from flask_login import current_user
 
 from auth import student_only
@@ -73,6 +73,31 @@ def note_partial(topic_id: int):
 # --- Phase 4 — attempt submission (digital input) ---
 
 
+def _bump_practice_state(subpart: SubPart, verdict: str) -> None:
+    """If the user is mid-practice for the paper that owns this SubPart, record
+    the attempt in session state so the Exercise page's progress bar updates
+    and the Next button doesn't serve the same subpart again."""
+    from models import PastPaper, Question
+
+    q = subpart.question or db.session.get(Question, subpart.question_id)
+    if q is None:
+        return
+    pp = db.session.get(PastPaper, q.past_paper_id)
+    if pp is None:
+        return
+    practice = session.get("practice") or {}
+    key = str(pp.paper_id)
+    state = practice.get(key)
+    if state is None:
+        return  # not in practice mode for this paper
+    if subpart.id not in state["answered"]:
+        state["answered"].append(subpart.id)
+        if verdict == "correct_optimal":
+            state["correct"] = state.get("correct", 0) + 1
+        session["practice"] = practice
+        session.modified = True
+
+
 def _bump_error_profile(user_id: int, topic_id: int | None, weight_delta: float):
     if topic_id is None:
         return
@@ -114,6 +139,7 @@ def submit_attempt(subpart_id: int):
     )
     db.session.add(attempt)
     db.session.commit()
+    _bump_practice_state(sp, verdict)
     return jsonify({"verdict": verdict, "attempt_id": attempt.id})
 
 
@@ -174,6 +200,7 @@ def submit_photo_attempt(subpart_id: int):
     )
     db.session.add(attempt)
     db.session.commit()
+    _bump_practice_state(sp, verdict)
 
     # Invalidate revision cache for this topic so next /revision regenerates
     # with fresh error context (Phase 7 wiring).

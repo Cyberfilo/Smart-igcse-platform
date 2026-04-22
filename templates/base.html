@@ -28,6 +28,7 @@
         <a href="{{ url_for('pages.revision') }}" class="topnav-link">Revision</a>
         {% if current_user.is_admin %}
           <a href="{{ url_for('admin.dashboard') }}" class="topnav-link topnav-admin">Admin</a>
+          <a href="{{ url_for('admin.ingest_home') }}" class="topnav-link">Ingest</a>
         {% endif %}
       </div>
     {% endif %}

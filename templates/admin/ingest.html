@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Admin — Bulk past-paper ingestion{% endblock %}
+
+{% block body %}
+  <main class="container">
+    <header class="page-header">
+      <h1>Bulk past-paper ingestion</h1>
+      <p class="subtitle">Upload the zip of past papers, then kick off extraction.</p>
+    </header>
+
+    <section class="topic-card">
+      <div class="section-h">1. Upload PDFs</div>
+      <p class="topic-intro">
+        Zip your <code>past_papers/</code> folder locally (keep Cambridge filenames
+        intact: <code>0580_s23_qp_43.pdf</code>), drop the zip here. The server
+        extracts every PDF into <code>{{ papers_root }}</code>; non-PDF entries are
+        skipped. Re-upload is idempotent — existing files are overwritten.
+      </p>
+
+      <form method="post" action="{{ url_for('admin.ingest_upload') }}"
+            enctype="multipart/form-data">
+        <input type="file" name="zipfile" accept=".zip" required>
+        <button type="submit" class="nav-btn active">Upload zip</button>
+      </form>
+
+      <p class="topic-intro" style="margin-top:0.8rem;">
+        <strong>{{ pdf_count }}</strong> PDFs currently on the volume.
+      </p>
+    </section>
+
+    <section class="topic-card">
+      <div class="section-h">2. Run extraction</div>
+      <p class="topic-intro">
+        The canonical path is the dedicated Railway <em>worker</em> service — it
+        runs <code>python -m scripts.ingest_papers</code> on its own container and
+        writes to the same Postgres + volume. Use the button below only for local
+        dev, or to rerun from this web container (detached subprocess, safe on
+        gunicorn worker recycle).
+      </p>
+
+      <form method="post" action="{{ url_for('admin.ingest_run') }}"
+            style="display:flex; gap:.6rem; flex-wrap:wrap; align-items:center;">
+        <label>
+          <input type="checkbox" name="pilot" value="1"> pilot (one session only)
+        </label>
+        <select name="syllabus" style="padding:.4rem;">
+          <option value="">All syllabi</option>
+          <option value="0580">0580 only</option>
+          <option value="0654">0654 only</option>
+        </select>
+        <button type="submit" class="nav-btn">Kick off ingestion</button>
+      </form>
+    </section>
+
+    <section class="topic-card">
+      <div class="section-h">3. Progress</div>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="s-label">Past papers</div>
+          <div class="s-value" id="pp-count">—</div>
+        </div>
+        <div class="summary-card">
+          <div class="s-label">Questions</div>
+          <div class="s-value" id="q-count">{{ questions_count }}</div>
+        </div>
+        <div class="summary-card">
+          <div class="s-label">Sub-parts</div>
+          <div class="s-value" id="sp-count">{{ subparts_count }}</div>
+        </div>
+        <div class="summary-card">
+          <div class="s-label">Pending review</div>
+          <div class="s-value" id="pending-count">{{ pending_review }}</div>
+        </div>
+      </div>
+
+      <div class="section-h" style="margin-top:1.2rem;">Latest log lines</div>
+      <pre id="log-tail"
+           style="background:var(--bg-panel); padding:.8rem; border-radius:.4rem;
+                  max-height:18rem; overflow:auto; font-size:.85rem; white-space:pre-wrap;">{{ log_tail or '(no log yet — no ingestion has run)' }}</pre>
+    </section>
+  </main>
+
+  <script>
+    // Poll /admin/ingest/progress every 4s so the counters update live while
+    // the worker service is running.
+    async function poll() {
+      try {
+        const r = await fetch('{{ url_for("admin.ingest_progress") }}');
+        if (!r.ok) return;
+        const d = await r.json();
+        document.getElementById('pp-count').textContent = d.past_papers;
+        document.getElementById('q-count').textContent = d.questions;
+        document.getElementById('sp-count').textContent = d.subparts;
+        document.getElementById('pending-count').textContent = d.pending_review;
+      } catch (_) { /* swallow — transient */ }
+    }
+    poll();
+    setInterval(poll, 4000);
+  </script>
+{% endblock %}

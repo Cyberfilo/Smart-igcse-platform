@@ -82,3 +82,41 @@ Set this up before Phase 3 at the latest — once past-paper data starts accumul
 
 - Postgres + app + volume ≈ $5–15/mo under normal load.
 - The real cost risk is `OPENAI_API_KEY` usage (Phase 5 vision calls + Phase 6 note generation). Monitor at platform.openai.com/usage. Phase 8 adds a per-user daily cap.
+
+## Worker service (past-paper ingestion)
+
+The ingestion pipeline (`scripts/ingest_papers.py`) walks every PDF on the volume, extracts questions + images, and writes to Postgres. It's idempotent and resumable — any crash mid-run is safe to restart.
+
+Running this work inside the web service is wrong (gunicorn worker timeout, no long-running request pattern), so we deploy it as a **separate Railway service** pointed at the same repo, same volume, same DB. One-time dashboard setup:
+
+### Add the worker service
+
+1. Railway project → **+ New** → **GitHub Repo** → pick `Cyberfilo/Smart-igcse-platform` again.
+2. Rename the new service to `worker` (Settings → service name).
+3. **Settings → Deploy**:
+   - **Start command**: `python -m scripts.ingest_papers`
+   - **Restart policy**: `Never` (we want the service to exit after the run; restarting would reprocess everything from the top — idempotent, but wasteful)
+   - **Replicas**: `1`
+4. **Settings → Volumes** → **Attach Volume** → pick the existing `data` volume → mount path `/data`. Critical: must share the same volume as the web service, otherwise the worker reads empty past-papers and the web service never sees the extracted images.
+5. **Variables** tab — copy across everything the web service has. Minimally:
+   - `DATABASE_URL` (reference Postgres.DATABASE_URL — same as web)
+   - `OPENAI_API_KEY`
+   - `PAST_PAPERS_DIR=/data/past-papers`
+   - `UPLOAD_DIR=/data/student-uploads` (harmless but keeps `create_app()` happy)
+   - `SECRET_KEY` (not strictly used by the script but `Config.validate()` demands it in prod)
+   - `FLASK_ENV=production`
+   - `FEATURE_INGESTION=1` ← **this is the switch that turns the vision-based MS parser + topic tagger on**. Without it the run still extracts questions but skips marking-scheme answers and topic tags.
+6. **Settings → Source** → branch `main` (or wherever ingestion gets committed).
+
+### Trigger a run
+
+- First run: the service will deploy and auto-start once you add it. Watch **Deployments → Deploy Logs** for progress (same lines that go to `/data/ingest.log`).
+- Re-run (after uploading more PDFs, or to retry failures): **Deployments → ⋯ → Redeploy** on the worker service. It picks up where it left off — upserts by natural key.
+- Watch progress from the web side: `/admin/ingest` shows live counts via a polling endpoint.
+
+### Operational notes
+
+- **Uploading PDFs**: use the web service's `/admin/ingest` page to drop `past_papers.zip`. The web service extracts into `/data/past-papers/` (same volume the worker reads from).
+- **Pilot first**: to sanity-check the pipeline on one session before the full run, override the start command on a single worker deploy to `python -m scripts.ingest_papers --pilot --syllabus 0580`. Revert after.
+- **Stopping mid-run**: just redeploy the worker with a no-op start command, or pause the service. Idempotency means you can always rerun later.
+- **Image storage**: under `/data/past-papers/_images/<syllabus>/<year>-<series>/p<paper>v<variant>/` — roughly 1.5–2 GB for the full set, well inside the 200 GB volume.

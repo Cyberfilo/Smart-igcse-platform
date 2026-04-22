@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Exercise — Paper {{ paper.number }} summary{% endblock %}
+
+{% block body %}
+  <main class="container">
+    <header class="page-header">
+      <h1>Practice session — Paper {{ paper.number }}</h1>
+      <p class="subtitle">
+        {% if answered >= total and total > 0 %}
+          You've seen every available question for this paper.
+        {% elif answered == 0 %}
+          No questions answered yet.
+        {% else %}
+          Here's how this session went.
+        {% endif %}
+      </p>
+    </header>
+
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="s-label">Answered</div>
+        <div class="s-value">{{ answered }}</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">Correct</div>
+        <div class="s-value">{{ correct }}</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">Pool size</div>
+        <div class="s-value">{{ total }}</div>
+      </div>
+      {% if answered %}
+        <div class="summary-card">
+          <div class="s-label">Accuracy</div>
+          <div class="s-value">{{ ((correct / answered) * 100) | round(0, 'floor') | int }}%</div>
+        </div>
+      {% endif %}
+    </div>
+
+    <div style="display:flex; gap:.6rem; margin-top:1.2rem; flex-wrap:wrap;">
+      <form method="post"
+            action="{{ url_for('pages.exercise_paper_start', paper_id=paper.id) }}">
+        <button type="submit" class="nav-btn active">Start fresh practice</button>
+      </form>
+      <a class="nav-btn"
+         href="{{ url_for('pages.exercise_select') }}">
+        Pick a different paper
+      </a>
+    </div>
+  </main>
+{% endblock %}
