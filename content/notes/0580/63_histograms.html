@@ -1,32 +1,45 @@
 <p class="topic-intro">(Extended.) Histograms with unequal class widths. Frequency density, not raw frequency, goes on the \(y\)-axis.</p>
 <figure class="topic-diagram">
-  <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Histogram with three bars of unequal width, y-axis shows frequency density">
+  <svg viewBox="0 0 340 210" xmlns="http://www.w3.org/2000/svg" role="img"
+       aria-label="Histogram with three classes of widths 10, 10 and 30 and frequency densities 2, 3 and 2. The third bar is the same height as the first but three times as wide, so contains three times the frequency.">
     <g stroke="currentColor" stroke-width="1" fill="none">
       <line x1="40" y1="170" x2="300" y2="170"/>
       <line x1="40" y1="170" x2="40" y2="20"/>
+      <line x1="37" y1="140" x2="40" y2="140"/>
+      <line x1="37" y1="110" x2="40" y2="110"/>
+      <line x1="37" y1="80"  x2="40" y2="80"/>
+      <line x1="90"  y1="170" x2="90"  y2="173"/>
+      <line x1="140" y1="170" x2="140" y2="173"/>
+      <line x1="290" y1="170" x2="290" y2="173"/>
     </g>
     <g fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.3">
-      <rect x="40" y="110" width="60" height="60"/>
-      <rect x="100" y="80" width="40" height="90"/>
-      <rect x="140" y="125" width="120" height="45"/>
+      <rect x="40"  y="110" width="50"  height="60"/>
+      <rect x="90"  y="80"  width="50"  height="90"/>
+      <rect x="140" y="110" width="150" height="60"/>
     </g>
-    <g font-size="10" fill="currentColor">
-      <text x="35" y="175" text-anchor="end">0</text>
-      <text x="35" y="115" text-anchor="end">2</text>
-      <text x="35" y="85" text-anchor="end">3</text>
-      <text x="100" y="185" text-anchor="middle">10</text>
-      <text x="140" y="185" text-anchor="middle">20</text>
-      <text x="260" y="185" text-anchor="middle">50</text>
-      <text x="70" y="145" text-anchor="middle" fill-opacity="0.85">FD=2</text>
-      <text x="120" y="115" text-anchor="middle" fill-opacity="0.85">FD=3</text>
-      <text x="200" y="152" text-anchor="middle" fill-opacity="0.85">FD=1.5</text>
+    <g font-size="10" fill="currentColor" text-anchor="end">
+      <text x="35" y="173">0</text>
+      <text x="35" y="143">1</text>
+      <text x="35" y="113">2</text>
+      <text x="35" y="83">3</text>
     </g>
-    <g font-size="11" fill="currentColor">
+    <g font-size="10" fill="currentColor" text-anchor="middle">
+      <text x="40"  y="184">0</text>
+      <text x="90"  y="184">10</text>
+      <text x="140" y="184">20</text>
+      <text x="290" y="184">50</text>
+    </g>
+    <g font-size="10" fill="currentColor" text-anchor="middle" fill-opacity="0.85">
+      <text x="65"  y="144">FD=2</text>
+      <text x="115" y="128">FD=3</text>
+      <text x="215" y="144">FD=2</text>
+    </g>
+    <g font-size="11" fill="currentColor" font-style="italic">
       <text x="22" y="28">FD</text>
-      <text x="295" y="188">class</text>
+      <text x="305" y="174">class</text>
     </g>
   </svg>
-  <figcaption>Bar widths equal class widths; heights are frequency density. Bar <em>area</em> \(=\) frequency.</figcaption>
+  <figcaption>Three bars: widths 10, 10, 30 and frequency densities 2, 3, 2. The third bar has the same height as the first but 3× the width, so it represents 3× the frequency — bar <em>area</em> equals frequency.</figcaption>
 </figure>
 <div class="formula-box"><span class="label">Frequency density</span>\(\text{FD} = \dfrac{\text{frequency}}{\text{class width}}\)</div>
 <div class="formula-box"><span class="label">Frequency</span>frequency density \(\times\) class width (area of bar)</div>

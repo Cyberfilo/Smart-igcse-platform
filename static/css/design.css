@@ -416,21 +416,39 @@ body.dark-mode .ds-topbar { background: rgba(20, 24, 31, 0.85); }
 
 /* ── Topic diagram (inline SVG inside note bodies) ───────────────── */
 
+/* The `> svg` child combinator is critical: MathJax injects its own
+   <svg> elements inside <figcaption> for \(...\) math, and a descendant
+   selector would stretch those math SVGs to 480px wide via width:100%. */
 .topic-diagram {
   margin: 1.2rem 0;
   text-align: center;
 }
-.topic-diagram svg {
-  max-width: 480px;
+.topic-diagram > svg {
+  max-width: 420px;
   width: 100%;
   height: auto;
   color: var(--ink-1);
+  display: block;
+  margin: 0 auto;
 }
 .topic-diagram figcaption {
   font-size: 0.85rem;
   color: var(--ink-3);
   margin-top: 0.4rem;
   font-style: italic;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.45;
+}
+/* Keep MathJax output inline inside figcaption even if its <svg> gets
+   sized by its own jax stylesheet — guard against any stray width:100%. */
+.topic-diagram figcaption mjx-container,
+.topic-diagram figcaption svg {
+  display: inline;
+  width: auto;
+  max-width: none;
+  vertical-align: -0.15em;
 }
 
 /* ── Utility ─────────────────────────────────────────────────────── */

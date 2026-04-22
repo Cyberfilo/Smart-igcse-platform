@@ -1,24 +1,29 @@
 <p class="topic-intro">Four transformations move shapes without distorting angles. Specify each with exact parameters — no missing info.</p>
 <figure class="topic-diagram">
-  <svg viewBox="0 0 340 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Triangle rotated 90 degrees anticlockwise about the origin">
+  <svg viewBox="0 0 340 220" xmlns="http://www.w3.org/2000/svg" role="img"
+       aria-label="A right-angled triangle in the upper-right quadrant is rotated ninety degrees anticlockwise about the origin; the dashed image triangle appears in the upper-left quadrant, congruent to the original.">
     <g stroke="currentColor" stroke-opacity="0.3" stroke-width="0.6">
       <line x1="20" y1="110" x2="320" y2="110"/>
       <line x1="170" y1="10" x2="170" y2="210"/>
     </g>
-    <g font-size="10" fill="currentColor" fill-opacity="0.6">
+    <g font-size="10" fill="currentColor" fill-opacity="0.65">
       <text x="322" y="114">x</text>
       <text x="162" y="14">y</text>
-      <text x="173" y="123">O</text>
+      <text x="175" y="122">O</text>
     </g>
-    <polygon points="210,100 270,100 270,70" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.5"/>
-    <text x="232" y="92" font-size="11" font-style="italic" fill="currentColor">A</text>
-    <polygon points="170,50 170,110 140,110" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/>
-    <text x="145" y="82" font-size="11" font-style="italic" fill="currentColor">A′</text>
-    <path d="M250 105 A50 50 0 0 0 165 55" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.7"/>
-    <polygon points="165,55 170,49 174,56" fill="currentColor"/>
-    <text x="195" y="72" font-size="10" fill="currentColor">90°</text>
+    <polygon points="210,100 270,100 270,70"
+             fill="currentColor" fill-opacity="0.12"
+             stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+    <text x="244" y="94" font-size="12" font-style="italic" fill="currentColor" text-anchor="middle">A</text>
+    <polygon points="160,70 160,10 130,10"
+             fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3" stroke-linejoin="round"/>
+    <text x="150" y="32" font-size="12" font-style="italic" fill="currentColor" text-anchor="middle">A′</text>
+    <path d="M213 85 A 50 50 0 0 0 145 67" fill="none" stroke="currentColor" stroke-width="1.1" stroke-opacity="0.75"/>
+    <polygon points="145,67 154,66 150,60" fill="currentColor" fill-opacity="0.75"/>
+    <text x="170" y="80" font-size="10" fill="currentColor" text-anchor="middle">90°</text>
   </svg>
-  <figcaption>Rotation \(90°\) anticlockwise about the origin: \(A \to A'\).</figcaption>
+  <figcaption>Rotation 90° anticlockwise about the origin maps triangle <em>A</em> to <em>A′</em>. Every point \((x, y)\) goes to \((-y, x)\).</figcaption>
 </figure>
 <div class="section-h">Four transformations + parameters</div>
 <ul class="fact-list">
