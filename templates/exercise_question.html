@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}Exercise — Q{{ question.question_number }}{% endblock %}
+
+{% block body %}
+<div class="ds-page ds-fade-in">
+  {# Header: breadcrumb-ish metadata, progress, end-practice. #}
+  <div class="ds-page-head">
+    <div>
+      <div style="font-size:12.5px; color:var(--ink-3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">
+        Exercise · Paper {{ paper.number }}
+      </div>
+      <h1 class="ds-page-title">Question {{ question.question_number }}</h1>
+      <div class="ds-page-sub">
+        {% if past_paper and session_row %}
+          <span class="mono">{{ past_paper.syllabus_id }}{{ paper.number }}{{ past_paper.variant }}</span>
+          · {{ session_row.series }} {{ session_row.year }}
+        {% endif %}
+        {% if topic %} · {{ topic.name }}{% endif %}
+        · {{ question.marks_total or '?' }} marks
+      </div>
+    </div>
+    <div class="ds-row" style="gap:14px;">
+      <div style="font-size:13px; color:var(--ink-3);">
+        <span class="mono">{{ progress.answered }}</span> / {{ progress.total }} done
+        · <span class="mono">{{ progress.correct }}</span> correct
+      </div>
+      <div class="ds-divider-v"></div>
+      <a class="ds-btn ds-btn-ghost ds-btn-sm"
+         href="{{ url_for('pages.exercise_paper_end', paper_id=paper.id) }}">End practice</a>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns:1fr 360px; gap:24px;">
+    {# LEFT: question card with full body + subpart prompts. #}
+    <div class="ds-card" style="padding:32px;">
+      {% if question.body_html %}
+        <div class="serif" style="font-size:18px; line-height:1.65; color:var(--ink-0); margin-bottom:22px;">
+          {{ question.body_html | safe }}
+        </div>
+      {% endif %}
+
+      {# Subpart prompts grouped by letter. Inputs live on the right rail so
+         the left column stays readable like an exam paper. Each subpart is
+         identified by its letter (a, a(i), b, b(ii)) — the rail renders
+         matching inputs in the same order. #}
+      <div class="ds-col" style="gap:18px;">
+        {% for sp in subparts %}
+          <div id="sp-prompt-{{ sp.id }}" data-letter="{{ sp.letter }}">
+            <div style="display:flex; gap:10px; align-items:baseline; margin-bottom:6px;">
+              <span class="serif" style="font-size:17px; font-weight:600;">({{ sp.letter }})</span>
+              {% if sp.marks %}
+                <span class="ds-badge">{{ sp.marks }} mark{{ '' if sp.marks == 1 else 's' }}</span>
+              {% endif %}
+              {% if sp.answer_schema == 'none' %}
+                <span class="ds-badge ds-badge-amber">no input — see sub-parts</span>
+              {% endif %}
+            </div>
+            <div class="serif" style="font-size:15.5px; line-height:1.65; color:var(--ink-1);">
+              {{ sp.body_html | safe }}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# RIGHT: answer rail. Sticky so the student can scroll the question text
+       while inputs stay visible. Switches between "input" / "marking" / "done"
+       states via JS. #}
+    <div id="answer-rail" style="position:sticky; top:88px; align-self:start;">
+      <div id="rail-input" class="ds-card" style="padding:20px;">
+        <div class="ds-label" style="margin-bottom:10px;">Your answers</div>
+
+        {% set has_markable = false %}
+        {% for sp in subparts %}
+          {% if sp.answer_schema in ('scalar', 'mcq', 'multi_cell') %}
+            {% set has_markable = true %}
+            <div class="ds-col" style="gap:6px; margin-bottom:14px;">
+              <label style="font-size:13px; color:var(--ink-2); font-family:var(--mono);">
+                ({{ sp.letter }}){% if sp.marks %} <span style="color:var(--ink-4);">· {{ sp.marks }}</span>{% endif %}
+              </label>
+              {% if sp.answer_schema == 'mcq' and sp.mcq_choices %}
+                <div class="ds-col" style="gap:6px;">
+                  {% for c in sp.mcq_choices %}
+                    <label style="display:flex; gap:8px; align-items:flex-start; padding:6px 8px; border-radius:6px; cursor:pointer;" class="mcq-opt">
+                      <input type="radio" name="sp-{{ sp.id }}" value="{{ c.id or c.html }}"
+                             data-subpart="{{ sp.id }}" class="sp-input">
+                      <span style="font-size:13.5px;">
+                        {% if c.id %}<strong>{{ c.id }}.</strong> {% endif %}{{ c.html | safe }}
+                      </span>
+                    </label>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <input type="text" class="ds-input sp-input"
+                       data-subpart="{{ sp.id }}"
+                       data-schema="{{ sp.answer_schema }}"
+                       placeholder="answer" autocomplete="off">
+              {% endif %}
+              <div id="verdict-{{ sp.id }}" class="sp-verdict" style="display:none; font-size:12px;"></div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        {% if not has_markable %}
+          <div style="color:var(--ink-3); font-size:13px;">
+            This question only has container or graphical subparts — nothing to mark digitally.
+          </div>
+        {% else %}
+          <button id="submit-btn" class="ds-btn ds-btn-primary"
+                  style="width:100%; justify-content:center;">
+            Submit for marking →
+          </button>
+        {% endif %}
+      </div>
+
+      {# Marking spinner + result panel are hidden until submit fires. #}
+      <div id="rail-marking" class="ds-card" style="padding:28px; text-align:center; display:none;">
+        <div class="ds-spinner" style="margin:0 auto 14px;"></div>
+        <div class="serif" style="font-size:17px;">Marking your answer…</div>
+        <div style="font-size:12.5px; color:var(--ink-3); margin-top:4px;">Comparing against mark scheme</div>
+      </div>
+
+      <div id="rail-done" class="ds-card ds-slide-up" style="padding:22px; display:none;">
+        <div id="done-summary" style="margin-bottom:14px;"></div>
+        <div style="display:flex; gap:8px;">
+          <button id="retry-btn" class="ds-btn ds-btn-ghost" style="flex:1; justify-content:center;">Try again</button>
+          <a id="next-btn" class="ds-btn ds-btn-primary" style="flex:1; justify-content:center;"
+             href="{{ url_for('pages.exercise_paper_next', paper_id=paper.id) }}">Next →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  const qid = {{ question.id }};
+  const railInput = document.getElementById('rail-input');
+  const railMark = document.getElementById('rail-marking');
+  const railDone = document.getElementById('rail-done');
+  const submitBtn = document.getElementById('submit-btn');
+  const retryBtn = document.getElementById('retry-btn');
+  const doneSummary = document.getElementById('done-summary');
+
+  function collectAnswers() {
+    const out = {};
+    document.querySelectorAll('.sp-input').forEach(el => {
+      const sid = el.dataset.subpart;
+      if (el.type === 'radio') {
+        if (el.checked) out[sid] = el.value;
+      } else {
+        if (el.value && el.value.trim()) out[sid] = el.value.trim();
+      }
+    });
+    return out;
+  }
+
+  function showState(which) {
+    railInput.style.display = which === 'input' ? 'block' : 'none';
+    railMark.style.display = which === 'marking' ? 'block' : 'none';
+    railDone.style.display = which === 'done' ? 'block' : 'none';
+  }
+
+  function renderVerdicts(data) {
+    let correctCount = 0, total = 0;
+    data.verdicts.forEach(v => {
+      total++;
+      const el = document.getElementById('verdict-' + v.subpart_id);
+      if (!el) return;
+      el.style.display = 'block';
+      if (v.verdict === 'correct_optimal') {
+        correctCount++;
+        el.innerHTML = '<span style="color:var(--ok)">✓ correct</span>';
+      } else if (v.verdict === 'missing') {
+        el.innerHTML = '<span style="color:var(--ink-3)">— no answer given</span>';
+      } else {
+        const exp = v.expected != null ? ` · expected <code class="mono">${v.expected}</code>` : '';
+        el.innerHTML = `<span style="color:var(--err)">✗ not quite</span>${exp}`;
+      }
+    });
+    const fullMarks = data.all_correct;
+    doneSummary.innerHTML = `
+      <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
+        <div style="width:36px; height:36px; border-radius:999px; display:grid; place-items:center;
+             background:${fullMarks ? 'var(--ok-soft)' : 'var(--err-soft)'};
+             color:${fullMarks ? 'var(--ok)' : 'var(--err)'}; font-size:20px;">${fullMarks ? '✓' : '✗'}</div>
+        <div>
+          <div class="serif" style="font-size:18px; font-weight:500;">${fullMarks ? 'Full marks' : 'Partial'}</div>
+          <div style="font-size:12.5px; color:var(--ink-3);">${correctCount} / ${total} subparts correct</div>
+        </div>
+      </div>`;
+  }
+
+  function resetInputs() {
+    document.querySelectorAll('.sp-input').forEach(el => {
+      if (el.type === 'radio') el.checked = false;
+      else el.value = '';
+    });
+    document.querySelectorAll('.sp-verdict').forEach(el => { el.style.display = 'none'; el.innerHTML = ''; });
+  }
+
+  if (submitBtn) {
+    submitBtn.addEventListener('click', async () => {
+      const answers = collectAnswers();
+      if (!Object.keys(answers).length) return;
+      showState('marking');
+      try {
+        const r = await fetch(`/attempt/question/${qid}`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({answers})
+        });
+        const data = await r.json();
+        renderVerdicts(data);
+        showState('done');
+      } catch (e) {
+        showState('input');
+        alert('Marking failed — please retry.');
+      }
+    });
+  }
+
+  if (retryBtn) {
+    retryBtn.addEventListener('click', () => {
+      resetInputs();
+      showState('input');
+    });
+  }
+
+  // MCQ rows: highlight on selection
+  document.querySelectorAll('.mcq-opt').forEach(label => {
+    label.addEventListener('click', () => {
+      label.parentElement.querySelectorAll('.mcq-opt').forEach(l =>
+        l.style.background = 'transparent');
+      label.style.background = 'var(--paper-2)';
+    });
+  });
+
+  // 'N' or Enter after done → next
+  document.addEventListener('keydown', (e) => {
+    if (railDone.style.display === 'block' && (e.key === 'Enter' || e.key.toLowerCase() === 'n')) {
+      e.preventDefault();
+      window.location.href = document.getElementById('next-btn').href;
+    }
+  });
+})();
+</script>
+{% endblock %}

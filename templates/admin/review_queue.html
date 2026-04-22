@@ -6,17 +6,31 @@
   <main class="container">
     <header class="page-header">
       <h1>Review queue</h1>
-      <p class="subtitle">Questions pending admin approval before they can appear in Exercise.</p>
+      <p class="subtitle">Questions with <code>extraction_status=auto</code> — flagged by the local ingestion
+        for admin eyeballing before they appear in Exercise.</p>
     </header>
 
     {% if not questions %}
       <aside class="strategy-box">
-        <p class="topic-intro">Queue empty — no auto-extracted questions pending.</p>
+        <p class="topic-intro">Queue empty — every ingested question is either <code>admin_approved</code>
+          or <code>admin_edited</code>.</p>
       </aside>
     {% else %}
       <ul class="fact-list">
         {% for q in questions %}
-          <li><a href="{{ url_for('admin.review_question', question_id=q.id) }}">Q{{ q.question_number }} · paper {{ q.past_paper_id }} · {{ q.marks_total or '?' }} marks</a></li>
+          {% set pp = q.past_paper %}
+          {% set p = pp.paper if pp else None %}
+          {% set s = pp.session if pp else None %}
+          {% set syll = pp.syllabus if pp else None %}
+          <li>
+            <a href="{{ url_for('admin.review_question', question_id=q.id) }}">
+              Q{{ q.question_number }}
+              {% if syll and p and s %}
+                · {{ syll.code }} P{{ p.number }}V{{ pp.variant }} · {{ s.series }} {{ s.year }}
+              {% endif %}
+              · {{ q.marks_total or '?' }} marks
+            </a>
+          </li>
         {% endfor %}
       </ul>
     {% endif %}

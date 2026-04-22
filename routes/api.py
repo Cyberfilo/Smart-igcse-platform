@@ -7,7 +7,7 @@ from flask_login import current_user
 
 from auth import student_only
 from extensions import db
-from models import Attempt, ErrorProfile, Note, SubPart, Topic
+from models import Attempt, ErrorProfile, Note, Question, SubPart, Topic
 from services.chat import ask as chat_ask
 from services.marking import auto_mark
 from services.ocr import diagnose
@@ -73,10 +73,26 @@ def note_partial(topic_id: int):
 # --- Phase 4 — attempt submission (digital input) ---
 
 
+def _bump_practice_state_question(question_id: int, paper_id: int, all_correct: bool) -> None:
+    """Record an answered Question in the practice-session state. Called by
+    the batch /attempt/question/<id> endpoint."""
+    practice = session.get("practice") or {}
+    key = str(paper_id)
+    state = practice.get(key)
+    if state is None:
+        return
+    answered = state.setdefault("answered_questions", [])
+    if question_id not in answered:
+        answered.append(question_id)
+        if all_correct:
+            state["correct"] = state.get("correct", 0) + 1
+        session["practice"] = practice
+        session.modified = True
+
+
 def _bump_practice_state(subpart: SubPart, verdict: str) -> None:
-    """If the user is mid-practice for the paper that owns this SubPart, record
-    the attempt in session state so the Exercise page's progress bar updates
-    and the Next button doesn't serve the same subpart again."""
+    """Legacy per-subpart tracker — kept only so the single-subpart deep-link
+    path keeps working. New per-question flow uses _bump_practice_state_question."""
     from models import PastPaper, Question
 
     q = subpart.question or db.session.get(Question, subpart.question_id)
@@ -89,9 +105,10 @@ def _bump_practice_state(subpart: SubPart, verdict: str) -> None:
     key = str(pp.paper_id)
     state = practice.get(key)
     if state is None:
-        return  # not in practice mode for this paper
-    if subpart.id not in state["answered"]:
-        state["answered"].append(subpart.id)
+        return
+    legacy = state.setdefault("answered", [])
+    if subpart.id not in legacy:
+        legacy.append(subpart.id)
         if verdict == "correct_optimal":
             state["correct"] = state.get("correct", 0) + 1
         session["practice"] = practice
@@ -220,6 +237,73 @@ def submit_photo_attempt(subpart_id: int):
             "transcript": result.get("transcript", ""),
         }
     )
+
+
+# --- Per-Question batch submission ---
+
+
+@api_bp.route("/attempt/question/<int:question_id>", methods=["POST"])
+@student_only
+def submit_question(question_id: int):
+    """Accepts answers for every leaf subpart of a question in one request.
+    Returns a per-subpart verdict array. Records one Attempt row per subpart,
+    bumps error profile on wrong leaves, and updates practice-session state
+    keyed by question_id (for the Next-button flow)."""
+    q = db.session.get(Question, question_id)
+    if q is None:
+        abort(404)
+
+    payload = request.get_json(silent=True) or {}
+    answers_by_subpart: dict[int, str] = {
+        int(k): v for k, v in (payload.get("answers") or {}).items()
+    }
+    if not answers_by_subpart:
+        return jsonify({"error": "answers required"}), 400
+
+    verdicts: list[dict] = []
+    all_correct = True
+    for sp in q.subparts:
+        if sp.answer_schema not in ("scalar", "mcq", "multi_cell"):
+            # Container ('none') or graphical — not markable, skip.
+            continue
+        submitted = answers_by_subpart.get(sp.id)
+        if submitted is None:
+            verdicts.append(
+                {"subpart_id": sp.id, "letter": sp.letter, "verdict": "missing"}
+            )
+            all_correct = False
+            continue
+
+        verdict = auto_mark(sp.answer_schema, submitted, sp.correct_answer)
+        if verdict != "correct_optimal":
+            all_correct = False
+            delta = 1.0 if verdict == "incorrect" else 0.3
+            _bump_error_profile(current_user.id, q.topic_id, delta)
+
+        attempt = Attempt(
+            user_id=current_user.id,
+            subpart_id=sp.id,
+            submitted_answer=submitted,
+            verdict=verdict,
+            error_tags=[],
+        )
+        db.session.add(attempt)
+        verdicts.append({
+            "subpart_id": sp.id,
+            "letter": sp.letter,
+            "verdict": verdict,
+            "expected": sp.correct_answer,
+        })
+    db.session.commit()
+
+    # Update practice-session state for the Next button.
+    from models import PastPaper
+
+    pp = db.session.get(PastPaper, q.past_paper_id)
+    if pp:
+        _bump_practice_state_question(q.id, pp.paper_id, all_correct)
+
+    return jsonify({"question_id": q.id, "all_correct": all_correct, "verdicts": verdicts})
 
 
 def _feedback_html(result: dict) -> str:

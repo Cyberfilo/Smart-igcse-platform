@@ -3,14 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}IGCSE Recap Map{% endblock %}</title>
+  <title>{% block title %}IGCSE Review Platform{% endblock %}</title>
+
+  {# Google Fonts — Newsreader (serif), Inter Tight (sans), JetBrains Mono (mono). #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Newsreader:ital,wght@0,400;0,500;0,600;1,500&display=swap">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/design.css') }}?v={{ asset_v.css }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ asset_v.css }}">
+
   <script>
     window.MathJax = {
-      tex: {
-        inlineMath: [['\\(', '\\)'], ['$', '$']],
-        displayMath: [['\\[', '\\]'], ['$$', '$$']]
-      },
+      tex: { inlineMath: [['\\(', '\\)'], ['$', '$']], displayMath: [['\\[', '\\]'], ['$$', '$$']] },
       svg: { fontCache: 'global' }
     };
   </script>
@@ -19,58 +24,90 @@
   {% block head_extra %}{% endblock %}
 </head>
 <body>
-  <nav class="topnav" id="topnav">
-    <a class="topnav-brand" href="{{ url_for('pages.index') }}">IGCSE Recap</a>
+<div class="app">
+  {# Topbar — redesigned per handoff bundle. Brand mark, student/admin tabs,
+     syllabus pill, sign-out. Kept single-line; falls to wrap on small screens. #}
+  <nav class="ds-topbar">
+    <a class="ds-brand" href="{{ url_for('pages.index') }}">
+      <span class="ds-brand-mark">I</span>
+      <span>IGCSE Review</span>
+    </a>
+
     {% if current_user.is_authenticated %}
-      <div class="topnav-links">
-        <a href="{{ url_for('pages.notes') }}" class="topnav-link">Notes</a>
-        <a href="{{ url_for('pages.exercise_select') }}" class="topnav-link">Exercise</a>
-        <a href="{{ url_for('pages.revision') }}" class="topnav-link">Revision</a>
+      <div class="ds-divider-v"></div>
+      <div class="ds-tabs">
         {% if current_user.is_admin %}
-          <a href="{{ url_for('admin.dashboard') }}" class="topnav-link topnav-admin">Admin</a>
-          <a href="{{ url_for('admin.ingest_home') }}" class="topnav-link">Ingest</a>
+          <a href="{{ url_for('admin.dashboard') }}"
+             class="{% if request.blueprint == 'admin' and request.endpoint == 'admin.dashboard' %}active{% endif %}">Overview</a>
+          <a href="{{ url_for('admin.users') }}"
+             class="{% if request.endpoint == 'admin.users' %}active{% endif %}">Users</a>
+          <a href="{{ url_for('admin.ingest_home') }}"
+             class="{% if request.endpoint and request.endpoint.startswith('admin.ingest') %}active{% endif %}">Ingestion</a>
+          <a href="{{ url_for('admin.review_queue') }}"
+             class="{% if request.endpoint and 'review' in request.endpoint %}active{% endif %}">Review</a>
+          <a href="{{ url_for('admin.cost_dashboard') }}"
+             class="{% if request.endpoint == 'admin.cost_dashboard' %}active{% endif %}">Cost</a>
+        {% else %}
+          <a href="{{ url_for('pages.notes') }}"
+             class="{% if request.endpoint == 'pages.notes' %}active{% endif %}">Notes</a>
+          <a href="{{ url_for('pages.exercise_select') }}"
+             class="{% if request.endpoint and request.endpoint.startswith('pages.exercise') %}active{% endif %}">Exercise</a>
+          <a href="{{ url_for('pages.revision') }}"
+             class="{% if request.endpoint and request.endpoint.startswith('pages.revision') or request.endpoint == 'pages.onboarding_style' %}active{% endif %}">Revision</a>
         {% endif %}
       </div>
     {% endif %}
-    <div class="topnav-right">
-      {% if current_user.is_authenticated %}
-        <details class="syll-dropdown">
-          <summary class="topnav-syllabus">
-            {% if current_syllabus %}{{ current_syllabus.code }} · {{ current_syllabus.name }}{% else %}Pick syllabus{% endif %}
-            <span class="syll-caret" aria-hidden="true">▾</span>
-          </summary>
-          <div class="syll-menu" role="menu">
-            {% for s in available_syllabi %}
-              <form method="post" action="{{ url_for('pages.syllabus_select') }}" class="syll-option">
-                <button type="submit" name="code" value="{{ s.code }}"
-                        class="syll-item {% if current_syllabus and current_syllabus.id == s.id %}active{% endif %}"
-                        {% if current_syllabus and current_syllabus.id == s.id %}aria-current="true"{% endif %}>
-                  <span class="syll-code">{{ s.code }}</span>
-                  <span class="syll-name">{{ s.name }}</span>
-                </button>
-              </form>
-            {% endfor %}
-            {% if not available_syllabi %}
-              <div class="syll-empty">No syllabi seeded yet.</div>
-            {% endif %}
-          </div>
-        </details>
-        <span class="topnav-user">{{ current_user.display_name }}</span>
-        <form method="post" action="{{ url_for('pages.logout') }}" class="topnav-form">
-          <button type="submit" class="topnav-link">Sign out</button>
-        </form>
-      {% else %}
-        <a href="{{ url_for('pages.login') }}" class="topnav-link topnav-signin">Sign in</a>
-      {% endif %}
-      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
-        <span class="theme-icon">◐</span>
-      </button>
-    </div>
+
+    <div style="flex:1;"></div>
+
+    {% if current_user.is_authenticated and not current_user.is_admin %}
+      {# Syllabus switcher — open <details> pattern so it works without JS. #}
+      <details class="syll-dropdown" style="position:relative;">
+        <summary class="ds-syllabus-pill" style="list-style:none;">
+          {% if current_syllabus %}
+            <span class="code">{{ current_syllabus.code }}</span>
+            <span class="name">{{ current_syllabus.name | replace('Cambridge IGCSE ', '') }}</span>
+          {% else %}
+            <span class="name">Pick syllabus</span>
+          {% endif %}
+          <span class="chev" aria-hidden="true">▾</span>
+        </summary>
+        <div class="syll-menu" role="menu" style="position:absolute; right:0; top:calc(100% + 6px);">
+          {% for s in available_syllabi %}
+            <form method="post" action="{{ url_for('pages.syllabus_select') }}" class="syll-option">
+              <button type="submit" name="code" value="{{ s.code }}"
+                      class="syll-item {% if current_syllabus and current_syllabus.id == s.id %}active{% endif %}">
+                <span class="syll-code">{{ s.code }}</span>
+                <span class="syll-name">{{ s.name }}</span>
+              </button>
+            </form>
+          {% endfor %}
+          {% if not available_syllabi %}
+            <div class="syll-empty">No syllabi seeded yet.</div>
+          {% endif %}
+        </div>
+      </details>
+    {% endif %}
+
+    {% if current_user.is_authenticated %}
+      <div class="ds-user-chip" title="{{ current_user.email }}">
+        {% set initials = (current_user.display_name or current_user.email)[:2] | upper %}
+        <span class="ds-avatar">{{ initials }}</span>
+        <span>{{ current_user.display_name }}</span>
+      </div>
+      <form method="post" action="{{ url_for('pages.logout') }}" style="display:inline;">
+        <button type="submit" class="ds-btn ds-btn-ghost ds-btn-sm">Sign out</button>
+      </form>
+    {% else %}
+      <a href="{{ url_for('pages.login') }}" class="ds-btn ds-btn-primary ds-btn-sm">Sign in</a>
+    {% endif %}
+
+    <button class="ds-btn ds-btn-ghost ds-btn-sm theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">◐</button>
   </nav>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="flash-stack">
+      <div class="flash-stack" style="max-width:1380px; margin:12px auto 0; padding:0 32px;">
         {% for category, msg in messages %}
           <div class="flash flash-{{ category }}">{{ msg }}</div>
         {% endfor %}
@@ -79,7 +116,9 @@
   {% endwith %}
 
   {% block body %}{% endblock %}
-  <script src="{{ url_for('static', filename='js/app.js') }}?v={{ asset_v.js }}"></script>
-  {% block scripts %}{% endblock %}
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}?v={{ asset_v.js }}"></script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

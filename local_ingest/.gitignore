@@ -1,0 +1,6 @@
+# Everything inside this folder is local-only ingestion tooling. We do track
+# the .py sources (so the pipeline is reproducible) but outputs stay local.
+images/
+output/
+*.log
+__pycache__/

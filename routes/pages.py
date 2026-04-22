@@ -283,61 +283,62 @@ def exercise_paper_start(paper_id: int):
 @pages_bp.route("/exercise/paper/<int:paper_id>/next")
 @student_only
 def exercise_paper_next(paper_id: int):
+    """Pick a random Question (not SubPart) for this paper that hasn't been
+    seen yet in the current practice session. Renders the whole question with
+    all its subparts, each getting its own input field."""
     paper = db.session.get(Paper, paper_id)
     if paper is None:
         abort(404)
 
     state = _practice_state(paper_id)
-    answered_ids = state["answered"] or [0]  # SQL NOT IN needs non-empty
+    # Per-question tracking (new) — fall back to old per-subpart key for safety.
+    answered_q_ids = state.get("answered_questions") or [0]
 
-    # Random SubPart where question.past_paper.paper_id == paper_id, excluding
-    # already-answered in this practice session. Cross-session randomisation is
-    # automatic: any qp for this paper is in the pool.
-    #   NOTE: we only surface schemas we can mark digitally — scalar + mcq.
-    #   multi_cell and graphical render a static message; skip them in the
-    #   random pool so the Next button doesn't serve a dead end.
-    subpart = (
-        db.session.query(SubPart)
-        .join(Question, SubPart.question_id == Question.id)
+    # Only surface questions that have at least one markable (scalar/mcq) leaf
+    # subpart — otherwise we'd render a question with no inputs.
+    question = (
+        db.session.query(Question)
         .join(PastPaper, Question.past_paper_id == PastPaper.id)
         .filter(PastPaper.paper_id == paper_id)
-        .filter(SubPart.answer_schema.in_(("scalar", "mcq")))
-        .filter(~SubPart.id.in_(answered_ids))
+        .filter(
+            Question.subparts.any(SubPart.answer_schema.in_(("scalar", "mcq")))
+        )
+        .filter(~Question.id.in_(answered_q_ids))
         .order_by(func.random())
         .first()
     )
 
-    if subpart is None:
-        # Pool exhausted for this paper (or empty from the start).
+    if question is None:
         return redirect(url_for("pages.exercise_paper_end", paper_id=paper_id))
 
-    question = subpart.question
-    past_paper = question.past_paper if hasattr(question, "past_paper") else (
-        db.session.get(PastPaper, question.past_paper_id)
-    )
+    past_paper = question.past_paper or db.session.get(PastPaper, question.past_paper_id)
     session_row = db.session.get(Session, past_paper.session_id) if past_paper else None
+    topic = question.topic
+    subparts = sorted(question.subparts, key=lambda sp: sp.letter)
+
     total_in_pool = (
-        db.session.query(func.count(SubPart.id))
-        .join(Question, SubPart.question_id == Question.id)
+        db.session.query(func.count(Question.id))
         .join(PastPaper, Question.past_paper_id == PastPaper.id)
         .filter(PastPaper.paper_id == paper_id)
-        .filter(SubPart.answer_schema.in_(("scalar", "mcq")))
+        .filter(
+            Question.subparts.any(SubPart.answer_schema.in_(("scalar", "mcq")))
+        )
         .scalar()
     )
     progress = {
-        "answered": len(state["answered"]),
-        "correct": state["correct"],
+        "answered": len(state.get("answered_questions") or []),
+        "correct": state.get("correct", 0),
         "total": int(total_in_pool or 0),
     }
     return render_template(
-        "exercise_subpart.html",
-        subpart=subpart,
+        "exercise_question.html",
         question=question,
+        subparts=subparts,
         paper=paper,
         past_paper=past_paper,
         session_row=session_row,
+        topic=topic,
         progress=progress,
-        practice_mode=True,
     )
 
 

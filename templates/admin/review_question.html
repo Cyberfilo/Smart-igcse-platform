@@ -5,34 +5,70 @@
 {% block body %}
   <main class="container">
     <header class="page-header">
+      {% set pp = question.past_paper %}
       <h1>Review Q{{ question.question_number }}</h1>
-      <p class="subtitle">Status: <strong>{{ question.extraction_status }}</strong></p>
+      <p class="subtitle">
+        {% if pp %}
+          {{ pp.syllabus.code }} · Paper {{ pp.paper.number }} Variant {{ pp.variant }}
+          · {{ pp.session.series }} {{ pp.session.year }} ·
+        {% endif %}
+        Status: <strong>{{ question.extraction_status }}</strong>
+        · {{ question.marks_total or '?' }} marks total
+      </p>
     </header>
 
+    {% if question.body_html %}
+      <article class="topic-card">
+        <div class="section-h">Question stem</div>
+        <div>{{ question.body_html | safe }}</div>
+      </article>
+    {% endif %}
+
     <article class="topic-card">
-      <div class="section-h">Auto-extracted body</div>
+      <div class="section-h">Sub-parts ({{ question.subparts | length }})</div>
+      {% for sp in question.subparts %}
+        <div style="margin-bottom:1.2rem; padding-bottom:.8rem; border-bottom:1px solid var(--border, #eee);">
+          <div style="display:flex; gap:.6rem; align-items:baseline; flex-wrap:wrap;">
+            <strong>({{ sp.letter }})</strong>
+            <span class="pill">{{ sp.answer_schema }}</span>
+            <span class="topic-intro">{{ sp.marks or '?' }} marks</span>
+          </div>
+          <div style="margin-top:.4rem;">{{ sp.body_html | safe }}</div>
+          {% if sp.mcq_choices %}
+            <ul class="fact-list" style="margin-top:.4rem;">
+              {% for c in sp.mcq_choices %}
+                <li>{{ c.id or '·' }}: {{ c.html | safe }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          {% if sp.correct_answer %}
+            <div class="tip-box" style="margin-top:.4rem;">
+              <span class="tip-label">Expected answer</span>
+              <code>{{ sp.correct_answer }}</code>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </article>
+
+    <article class="topic-card">
+      <div class="section-h">Metadata</div>
       <form method="post">
-        <textarea name="body_html" rows="10" style="width:100%;">{{ question.body_html }}</textarea>
         <label>Topic
           <select name="topic_id">
             <option value="">(unassigned)</option>
             {% for t in topics %}
-              <option value="{{ t.id }}" {% if question.topic_id == t.id %}selected{% endif %}>{{ t.syllabus.code }} · T{{ t.number }} {{ t.name }}</option>
+              <option value="{{ t.id }}" {% if question.topic_id == t.id %}selected{% endif %}>
+                {{ t.syllabus.code }} · T{{ t.number }} {{ t.name }}
+              </option>
             {% endfor %}
           </select>
         </label>
-        <button type="submit" name="action" value="edit" class="nav-btn">Save edits</button>
-        <button type="submit" name="action" value="approve" class="nav-btn active">Approve as-is</button>
+        <div style="margin-top:.8rem; display:flex; gap:.4rem;">
+          <button type="submit" name="action" value="edit" class="nav-btn">Save topic</button>
+          <button type="submit" name="action" value="approve" class="nav-btn active">Approve</button>
+        </div>
       </form>
-    </article>
-
-    <article class="topic-card">
-      <div class="section-h">Sub-parts</div>
-      <ul class="fact-list">
-        {% for sp in question.subparts %}
-          <li>({{ sp.letter }}) <code>{{ sp.answer_schema }}</code> · {{ sp.marks or '?' }} marks · ans: <code>{{ sp.correct_answer }}</code></li>
-        {% endfor %}
-      </ul>
     </article>
   </main>
 {% endblock %}

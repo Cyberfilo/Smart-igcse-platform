@@ -1,24 +1,34 @@
 {% extends "base.html" %}
 
-{% block title %}Sign in — IGCSE Recap{% endblock %}
+{% block title %}Sign in — IGCSE Review{% endblock %}
 
 {% block body %}
-  <div class="auth-shell">
-    <form method="post" class="auth-card">
-      <h1>Sign in</h1>
-      <p class="auth-subtitle">No self-signup — ask your teacher for credentials.</p>
+<div class="ds-page ds-fade-in" style="max-width:420px; padding-top:60px;">
+  <div class="ds-card" style="padding:32px;">
+    <div style="text-align:center; margin-bottom:24px;">
+      <div class="ds-brand-mark" style="width:44px; height:44px; font-size:22px; margin:0 auto 14px;">I</div>
+      <h1 class="serif" style="margin:0; font-size:28px; font-weight:500; letter-spacing:-0.02em;">Sign in</h1>
+      <div style="color:var(--ink-3); font-size:14px; margin-top:4px;">IGCSE Review Platform</div>
+    </div>
 
-      <label class="auth-field">
-        Email or username
-        <input type="text" name="email" autocomplete="username" autofocus required>
-      </label>
-
-      <label class="auth-field">
-        Password
-        <input type="password" name="password" autocomplete="current-password" required>
-      </label>
-
-      <button type="submit" class="auth-submit">Sign in</button>
+    <form method="post" class="ds-col" style="gap:14px;">
+      <div>
+        <label class="ds-label" for="email">Email or username</label>
+        <input id="email" name="email" type="text" class="ds-input" required autofocus autocomplete="username">
+      </div>
+      <div>
+        <label class="ds-label" for="password">Password</label>
+        <input id="password" name="password" type="password" class="ds-input" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="ds-btn ds-btn-primary" style="justify-content:center; margin-top:6px;">
+        Sign in →
+      </button>
     </form>
+
+    <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--paper-2); font-size:12.5px; color:var(--ink-3); line-height:1.5;">
+      Accounts are created by admins. If you don't have credentials, contact
+      your teacher.
+    </div>
   </div>
+</div>
 {% endblock %}

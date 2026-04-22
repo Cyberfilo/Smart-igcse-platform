@@ -45,6 +45,7 @@ class Paper(db.Model):
     supports_digital_input = db.Column(db.Boolean, default=False, nullable=False)  # 0654 P2 = True
 
     syllabus = db.relationship("Syllabus", back_populates="papers")
+    past_papers = db.relationship("PastPaper", back_populates="paper")
 
 
 class Session(db.Model):
@@ -153,6 +154,10 @@ class PastPaper(db.Model):
     formula_sheet_ref = db.Column(db.String(512), nullable=True)
     uploaded_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
 
+    syllabus = db.relationship("Syllabus")
+    paper = db.relationship("Paper", back_populates="past_papers")
+    session = db.relationship("Session")
+
 
 class Question(db.Model):
     __tablename__ = "questions"
@@ -169,6 +174,8 @@ class Question(db.Model):
         db.String(24), default="auto", nullable=False
     )  # auto / admin_approved / admin_edited
 
+    past_paper = db.relationship("PastPaper")
+    topic = db.relationship("Topic")
     subparts = db.relationship("SubPart", back_populates="question", cascade="all, delete-orphan")
 
 
@@ -177,7 +184,7 @@ class SubPart(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     question_id = db.Column(db.Integer, db.ForeignKey("questions.id"), nullable=False)
-    letter = db.Column(db.String(4), nullable=False)  # a, b, c, a(i), a(ii)
+    letter = db.Column(db.String(16), nullable=False)  # a, b, c, a(i), a(ii), b(iii)
     body_html = db.Column(db.Text, nullable=False, default="")
     answer_schema = db.Column(
         db.String(16), default="scalar", nullable=False

@@ -3,30 +3,23 @@
 {% block title %}Notes — {{ syllabus.name }}{% endblock %}
 
 {% block body %}
-  <main class="container">
-    <header class="page-header">
+<div class="ds-page ds-fade-in">
+  <div class="ds-page-head">
+    <div>
+      <div style="font-size:12.5px; color:var(--ink-3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">
+        Notes · {{ syllabus.code }}
+      </div>
+      <h1 class="ds-page-title">{{ syllabus.name | replace('Cambridge IGCSE ', '') }}</h1>
+      <div class="ds-page-sub">Pick an area to see its topics — or browse all.</div>
+    </div>
+    <div class="ds-row" style="gap:14px; font-size:12.5px; color:var(--ink-3);">
+      <span><span class="mono">{{ topics|length }}</span> topics · <span class="mono">{{ areas|length }}</span> areas</span>
+    </div>
+  </div>
+  <main class="container" style="max-width:none;">
+    <header class="page-header" style="display:none;">
       <h1>{{ syllabus.name }}</h1>
-      <p class="subtitle">Pick an area to see its topics — or browse all.</p>
     </header>
-
-    <section class="summary-grid">
-      <div class="summary-card">
-        <div class="s-label">Syllabus</div>
-        <div class="s-value">Cambridge {{ syllabus.code }}</div>
-      </div>
-      <div class="summary-card">
-        <div class="s-label">Topics</div>
-        <div class="s-value">{{ topics|length }}</div>
-      </div>
-      <div class="summary-card">
-        <div class="s-label">Areas</div>
-        <div class="s-value">{{ areas|length }}</div>
-      </div>
-      <div class="summary-card">
-        <div class="s-label">Today</div>
-        <div class="s-value">{{ today.strftime("%d %b %Y") }}</div>
-      </div>
-    </section>
 
     {# Area tiles — primary landing. Click one → drills into that area. #}
     <h2 class="module-heading">Syllabus areas</h2>
@@ -94,4 +87,5 @@
       <p>{{ syllabus.name }} · Cambridge Syllabus</p>
     </footer>
   </main>
+</div>
 {% endblock %}

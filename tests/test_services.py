@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from services.ingestion import parse_filename
 from services.marking import auto_mark, mark_mcq, mark_multi_cell, mark_scalar
 from services.ocr import _stub_verdict, diagnose
 from services.openai_client import feature_flag
@@ -105,29 +104,4 @@ def test_style_classifier_all_narrative():
     assert classify(answers) == "narrative"
 
 
-def test_parse_filename_qp_summer():
-    p = parse_filename("0580_s23_qp_43.pdf")
-    assert p is not None
-    assert p.syllabus == "0580"
-    assert p.series == "M/J"
-    assert p.year == 2023
-    assert p.kind == "qp"
-    assert p.paper == 4
-    assert p.variant == 3
-
-
-def test_parse_filename_ms_march():
-    p = parse_filename("0654_m22_ms_62.pdf")
-    assert p is not None
-    assert p.syllabus == "0654"
-    assert p.series == "F/M"
-    assert p.year == 2022
-    assert p.kind == "ms"
-    assert p.paper == 6
-    assert p.variant == 2
-
-
-def test_parse_filename_rejects_garbage():
-    assert parse_filename("notes.pdf") is None
-    assert parse_filename("0580_qp_43.pdf") is None
-    assert parse_filename("0580_s23_xx_43.pdf") is None
+# Filename parser tests moved to local_ingest (it's the canonical owner now).
