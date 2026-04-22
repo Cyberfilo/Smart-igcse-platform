@@ -6,17 +6,50 @@ showing DB counts so the admin can see the extraction landed.
 """
 from __future__ import annotations
 
+import csv
+import io
 import os
+import re
 import secrets
 import zipfile
 from pathlib import Path
 
-from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for
+from flask import (
+    Blueprint, Response, abort, current_app, flash, jsonify, redirect,
+    render_template, request, url_for,
+)
 from flask_login import current_user, login_required
 
 from auth import admin_required, hash_password
 from extensions import db
 from models import PastPaper, Paper, Question, SubPart, Syllabus, Topic, User
+
+
+# ── School email conventions ─────────────────────────────────────────
+#
+# Student: name.surname@students.bdcschool.eu   (two dot-parts before @)
+# Admin:   n.surname@bdcschool.eu               (one-char first + surname)
+#
+# Anything else gets rejected — admin has to use the schemes above.
+
+STUDENT_DOMAIN = "students.bdcschool.eu"
+ADMIN_DOMAIN = "bdcschool.eu"
+
+_STUDENT_RE = re.compile(r"^([a-z]+\.[a-z]+)@" + re.escape(STUDENT_DOMAIN) + r"$", re.I)
+_ADMIN_RE = re.compile(r"^([a-z]\.[a-z]+)@" + re.escape(ADMIN_DOMAIN) + r"$", re.I)
+
+
+def _parse_school_email(email: str) -> tuple[str, str] | None:
+    """Returns (role, username) for a valid school email, else None.
+    Username is always the email local part, lowercased."""
+    email = email.strip().lower()
+    m = _STUDENT_RE.match(email)
+    if m:
+        return "student", m.group(1)
+    m = _ADMIN_RE.match(email)
+    if m:
+        return "admin", m.group(1)
+    return None
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -40,39 +73,113 @@ def dashboard():
 @login_required
 @admin_required
 def users():
-    new_password: str | None = None
-    if request.method == "POST":
-        email = (request.form.get("email") or "").strip().lower()
-        role = request.form.get("role", "student")
-        syllabus_code = request.form.get("syllabus_code") or None
-        if not email:
-            flash("Email required.", "error")
-        elif User.query.filter_by(email=email).first():
-            flash(f"User {email} already exists.", "error")
-        else:
-            syll = Syllabus.query.filter_by(code=syllabus_code).first() if syllabus_code else None
-            password = secrets.token_urlsafe(16)
-            user = User(
-                email=email,
-                password_hash=hash_password(password),
-                role=role,
-                syllabus_id=syll.id if syll else None,
-            )
-            db.session.add(user)
-            db.session.commit()
-            new_password = password
-            flash(
-                f"Created {email}. Copy the password now — it cannot be retrieved later.",
-                "success",
-            )
+    """Add-user flow parses the school email → (role, username). We also
+    persist the generated password (in generated_password) so the admin
+    can re-export it later. The password_hash column is still the auth
+    source-of-truth — plaintext is ONLY kept for the credential sheet."""
+    just_created: dict | None = None
 
-    all_users = User.query.order_by(User.created_at.desc()).all()
+    if request.method == "POST":
+        email_raw = (request.form.get("email") or "").strip()
+        default_syllabus = (request.form.get("syllabus_code") or "").strip() or None
+
+        parsed = _parse_school_email(email_raw)
+        if parsed is None:
+            flash(
+                f"Email must be either name.surname@{STUDENT_DOMAIN} (student) "
+                f"or n.surname@{ADMIN_DOMAIN} (admin).",
+                "error",
+            )
+        elif User.query.filter_by(email=email_raw.lower()).first():
+            flash(f"User {email_raw} already exists.", "error")
+        else:
+            role, username = parsed
+            if User.query.filter_by(username=username).first():
+                flash(f"Username {username} already taken.", "error")
+            else:
+                syll = None
+                if default_syllabus:
+                    syll = Syllabus.query.filter_by(code=default_syllabus).first()
+                password = secrets.token_urlsafe(12)
+                user = User(
+                    email=email_raw.lower(),
+                    username=username,
+                    password_hash=hash_password(password),
+                    generated_password=password,
+                    role=role,
+                    syllabus_id=syll.id if (syll and role == "student") else None,
+                )
+                db.session.add(user)
+                db.session.commit()
+                just_created = {
+                    "email": user.email,
+                    "username": user.username,
+                    "password": password,
+                    "role": role,
+                    "display_name": user.display_name,
+                }
+
+    role_filter = (request.args.get("role") or "all").lower()
+    q_search = (request.args.get("q") or "").strip().lower()
+
+    query = User.query
+    if role_filter in ("student", "admin"):
+        query = query.filter_by(role=role_filter)
+    if q_search:
+        like = f"%{q_search}%"
+        query = query.filter(
+            db.or_(User.email.ilike(like), User.username.ilike(like))
+        )
+
+    all_users = query.order_by(User.created_at.desc()).all()
+    counts = {
+        "all": User.query.count(),
+        "student": User.query.filter_by(role="student").count(),
+        "admin": User.query.filter_by(role="admin").count(),
+    }
     all_syllabi = Syllabus.query.order_by(Syllabus.code).all()
+
     return render_template(
         "admin/users.html",
         users=all_users,
         syllabi=all_syllabi,
-        new_password=new_password,
+        just_created=just_created,
+        role_filter=role_filter,
+        q_search=q_search,
+        counts=counts,
+        student_domain=STUDENT_DOMAIN,
+        admin_domain=ADMIN_DOMAIN,
+    )
+
+
+@admin_bp.route("/users/export.csv")
+@login_required
+@admin_required
+def users_export():
+    """Download every user's credentials as CSV. Only ADMINS hit this route.
+    Users without a stored generated_password (e.g. the bootstrap admin)
+    show blank — they can reset their password from elsewhere if needed."""
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["email", "username", "display_name", "role", "syllabus", "password"])
+    for u in User.query.order_by(User.role, User.username).all():
+        syll_code = ""
+        if u.syllabus_id:
+            syll = db.session.get(Syllabus, u.syllabus_id)
+            syll_code = syll.code if syll else ""
+        writer.writerow([
+            u.email,
+            u.username or "",
+            u.display_name,
+            u.role,
+            syll_code,
+            u.generated_password or "",
+        ])
+    csv_bytes = buf.getvalue()
+    return Response(
+        csv_bytes,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=igcse-users.csv"},
     )
 
 

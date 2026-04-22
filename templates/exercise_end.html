@@ -3,50 +3,79 @@
 {% block title %}Exercise — Paper {{ paper.number }} summary{% endblock %}
 
 {% block body %}
-  <main class="container">
-    <header class="page-header">
-      <h1>Practice session — Paper {{ paper.number }}</h1>
-      <p class="subtitle">
+{% set pct = ((correct / answered) * 100) | round(0, 'floor') | int if answered else 0 %}
+<div class="ds-page ds-fade-in" style="max-width:880px;">
+  <div class="ds-page-head">
+    <div>
+      <div style="font-size:12.5px; color:var(--ink-3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">Exercise summary</div>
+      <h1 class="ds-page-title">Paper {{ paper.number }}</h1>
+      <div class="ds-page-sub">
         {% if answered >= total and total > 0 %}
-          You've seen every available question for this paper.
+          You've seen every available question for this paper — good going.
         {% elif answered == 0 %}
           No questions answered yet.
         {% else %}
-          Here's how this session went.
+          Session wrap-up below. Start fresh, or jump to a different paper.
         {% endif %}
-      </p>
-    </header>
+      </div>
+    </div>
+  </div>
 
-    <div class="summary-grid">
-      <div class="summary-card">
-        <div class="s-label">Answered</div>
-        <div class="s-value">{{ answered }}</div>
+  <div style="display:grid; grid-template-columns:220px 1fr; gap:24px; align-items:start;">
+    {# Accuracy donut. #}
+    <div class="ds-card" style="padding:22px; text-align:center;">
+      <svg viewBox="0 0 100 100" style="width:140px; height:140px; margin:0 auto 10px; display:block;">
+        <circle cx="50" cy="50" r="42" fill="none" stroke="var(--paper-2)" stroke-width="10"/>
+        <circle cx="50" cy="50" r="42" fill="none"
+                stroke="{% if pct >= 70 %}var(--ok){% elif pct >= 40 %}var(--amber){% else %}var(--err){% endif %}"
+                stroke-width="10" stroke-linecap="round"
+                stroke-dasharray="{{ (pct * 2.639) | round(1) }} 264"
+                transform="rotate(-90 50 50)"/>
+        <text x="50" y="52" text-anchor="middle" dominant-baseline="middle"
+              class="serif" style="font-size:22px; font-weight:500; fill:var(--ink-0);">{{ pct }}%</text>
+        <text x="50" y="68" text-anchor="middle" class="mono" style="font-size:7px; fill:var(--ink-3);">accuracy</text>
+      </svg>
+      <div style="font-size:12.5px; color:var(--ink-3);">
+        {{ correct }} correct of {{ answered }}
       </div>
-      <div class="summary-card">
-        <div class="s-label">Correct</div>
-        <div class="s-value">{{ correct }}</div>
+    </div>
+
+    <div class="ds-col" style="gap:14px;">
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
+        <div class="ds-card" style="padding:16px;">
+          <div class="ds-label" style="margin-bottom:6px;">Answered</div>
+          <div class="serif" style="font-size:30px; font-weight:500;">{{ answered }}</div>
+        </div>
+        <div class="ds-card" style="padding:16px;">
+          <div class="ds-label" style="margin-bottom:6px;">Correct</div>
+          <div class="serif" style="font-size:30px; font-weight:500; color:var(--ok);">{{ correct }}</div>
+        </div>
+        <div class="ds-card" style="padding:16px;">
+          <div class="ds-label" style="margin-bottom:6px;">Pool size</div>
+          <div class="serif" style="font-size:30px; font-weight:500;">{{ total }}</div>
+        </div>
       </div>
-      <div class="summary-card">
-        <div class="s-label">Pool size</div>
-        <div class="s-value">{{ total }}</div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <form method="post" action="{{ url_for('pages.exercise_paper_start', paper_id=paper.id) }}" style="margin:0;">
+          <button type="submit" class="ds-btn ds-btn-primary">↻ Start fresh practice</button>
+        </form>
+        <a class="ds-btn ds-btn-ghost" href="{{ url_for('pages.exercise_select') }}">← Pick a different paper</a>
       </div>
-      {% if answered %}
-        <div class="summary-card">
-          <div class="s-label">Accuracy</div>
-          <div class="s-value">{{ ((correct / answered) * 100) | round(0, 'floor') | int }}%</div>
+
+      {% if answered > 0 and pct < 70 %}
+        <div class="ds-card" style="padding:16px; background:var(--amber-soft); border-color:var(--amber-line);">
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <div style="font-size:18px;">💡</div>
+            <div style="font-size:13.5px; color:oklch(35% 0.1 75); line-height:1.55;">
+              Weak topics from this session landed in your
+              <a href="{{ url_for('pages.revision') }}" style="color:inherit; font-weight:600;">Revision queue</a>
+              — re-explained in the style that suits your profile.
+            </div>
+          </div>
         </div>
       {% endif %}
     </div>
-
-    <div style="display:flex; gap:.6rem; margin-top:1.2rem; flex-wrap:wrap;">
-      <form method="post"
-            action="{{ url_for('pages.exercise_paper_start', paper_id=paper.id) }}">
-        <button type="submit" class="nav-btn active">Start fresh practice</button>
-      </form>
-      <a class="nav-btn"
-         href="{{ url_for('pages.exercise_select') }}">
-        Pick a different paper
-      </a>
-    </div>
-  </main>
+  </div>
+</div>
 {% endblock %}

@@ -1,26 +1,49 @@
 {% extends "base.html" %}
 
-{% block title %}Learning-style quiz{% endblock %}
+{% block title %}Learning style · Revision{% endblock %}
 
 {% block body %}
-  <main class="container">
-    <header class="page-header">
-      <h1>How do you like to learn?</h1>
-      <p class="subtitle">5 quick questions. Your answers tune how Revision renders notes.</p>
-    </header>
+<div class="ds-page ds-fade-in" style="max-width:760px;">
+  <div style="text-align:center; padding-top:40px;">
+    <div style="display:inline-flex; padding:14px; border-radius:999px; background:var(--ink-0); color:var(--paper-0); margin-bottom:20px; font-size:22px;">🧠</div>
+    <h1 class="serif" style="font-size:44px; font-weight:500; letter-spacing:-0.02em; margin:0 0 12px; line-height:1.1;">
+      First, let's figure out<br>how <em>you</em> learn best.
+    </h1>
+    <p style="font-size:16px; color:var(--ink-2); line-height:1.6; max-width:520px; margin:0 auto 28px;">
+      {{ quiz | length }} quick questions. There are no right answers — just pick what feels most like you.
+      Revision will re-explain topics the way your brain prefers.
+    </p>
+  </div>
 
-    <form method="post" class="strategy-box">
-      {% for q in quiz %}
-        <fieldset style="margin-bottom:1.5rem; border:0;">
-          <legend class="section-h">{{ q.id }}. {{ q.prompt }}</legend>
+  <form method="post" class="ds-col" style="gap:22px;">
+    {% for q in quiz %}
+      <div class="ds-card" style="padding:22px;">
+        <div style="font-family:var(--mono); font-size:11.5px; color:var(--ink-3); margin-bottom:4px;">
+          {{ q.id }} / {{ quiz | length }}
+        </div>
+        <h3 class="serif" style="font-size:22px; font-weight:500; margin:0 0 16px; letter-spacing:-0.015em; line-height:1.3;">
+          {{ q.prompt }}
+        </h3>
+        <div class="ds-col" style="gap:8px;">
           {% for letter, label, style in q.choices %}
-            <label style="display:block; padding:.4rem 0;">
-              <input type="radio" name="q{{ q.id }}" value="{{ letter }}" required> {{ letter }}. {{ label }}
+            <label style="display:flex; gap:12px; align-items:center; padding:10px 14px; border:1px solid var(--paper-3); border-radius:var(--r); cursor:pointer; transition:all 0.15s;"
+                   class="onboard-opt">
+              <input type="radio" name="q{{ q.id }}" value="{{ letter }}" required style="margin:0;">
+              <div style="width:24px; height:24px; border-radius:6px; background:var(--paper-2); display:grid; place-items:center; font-family:var(--mono); font-size:11px; color:var(--ink-2);">{{ letter }}</div>
+              <span style="flex:1; font-size:14px;">{{ label }}</span>
             </label>
           {% endfor %}
-        </fieldset>
-      {% endfor %}
-      <button type="submit" class="nav-btn active">Save profile</button>
-    </form>
-  </main>
+        </div>
+      </div>
+    {% endfor %}
+
+    <button type="submit" class="ds-btn ds-btn-primary" style="justify-content:center; padding:14px; font-size:15px;">
+      Save profile →
+    </button>
+  </form>
+</div>
+<style>
+  .onboard-opt:hover { border-color: var(--ink-3); background: var(--paper-0); }
+  .onboard-opt:has(input:checked) { border-color: var(--ink-0); background: var(--paper-0); box-shadow: 0 0 0 1px var(--ink-0) inset; }
+</style>
 {% endblock %}

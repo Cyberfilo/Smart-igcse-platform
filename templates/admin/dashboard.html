@@ -1,25 +1,48 @@
 {% extends "base.html" %}
 
-{% block title %}Admin — Dashboard{% endblock %}
+{% block title %}Admin — Overview{% endblock %}
 
 {% block body %}
-  <main class="container">
-    <header class="page-header">
-      <h1>Admin</h1>
-      <p class="subtitle">Manage users, past papers, and review extractions.</p>
-    </header>
+<div class="ds-page ds-fade-in">
+  <div class="ds-page-head">
+    <div>
+      <div style="font-size:12.5px; color:var(--ink-3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">Administration</div>
+      <h1 class="ds-page-title">Overview</h1>
+      <div class="ds-page-sub">Manage students, teachers, syllabuses and platform activity.</div>
+    </div>
+  </div>
 
-    <section class="summary-grid">
-      <div class="summary-card"><div class="s-label">Users</div><div class="s-value">{{ users_count }}</div></div>
-      <div class="summary-card"><div class="s-label">Questions</div><div class="s-value">{{ questions_count }}</div></div>
-      <div class="summary-card"><div class="s-label">Pending review</div><div class="s-value">{{ pending_review }}</div></div>
-    </section>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:20px;">
+    <div class="ds-card" style="padding:18px;">
+      <div class="ds-label" style="margin-bottom:8px;">Users</div>
+      <div class="serif" style="font-size:32px; font-weight:500;">{{ users_count }}</div>
+    </div>
+    <div class="ds-card" style="padding:18px;">
+      <div class="ds-label" style="margin-bottom:8px;">Questions</div>
+      <div class="serif" style="font-size:32px; font-weight:500;">{{ questions_count }}</div>
+    </div>
+    <div class="ds-card" style="padding:18px;">
+      <div class="ds-label" style="margin-bottom:8px;">Pending review</div>
+      <div class="serif" style="font-size:32px; font-weight:500;">{{ pending_review }}</div>
+    </div>
+  </div>
 
-    <nav class="topic-nav">
-      <a class="nav-btn" href="{{ url_for('admin.users') }}">Users</a>
-      <a class="nav-btn" href="{{ url_for('admin.ingest_home') }}">Ingestion</a>
-      <a class="nav-btn" href="{{ url_for('admin.review_queue') }}">Review queue</a>
-      <a class="nav-btn" href="{{ url_for('admin.cost_dashboard') }}">Cost dashboard</a>
-    </nav>
-  </main>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
+    {% set quick_links = [
+      ('admin.users',         'Users',         'Add students & admins, export credentials'),
+      ('admin.ingest_home',   'Ingestion',     'Image uploads + extraction progress'),
+      ('admin.review_queue',  'Review queue',  'Eyeball auto-extracted questions'),
+      ('admin.cost_dashboard','Cost dashboard','OpenAI usage + rate-limits')
+    ] %}
+    {% for endpoint, label, desc in quick_links %}
+      <a href="{{ url_for(endpoint) }}" class="ds-card"
+         style="padding:18px; text-decoration:none; color:inherit; transition:all 0.15s;"
+         onmouseover="this.style.borderColor='var(--ink-3)'; this.style.transform='translateY(-1px)';"
+         onmouseout="this.style.borderColor='var(--paper-3)'; this.style.transform='none';">
+        <div class="serif" style="font-size:18px; font-weight:500; margin-bottom:4px;">{{ label }} →</div>
+        <div style="font-size:12.5px; color:var(--ink-3); line-height:1.5;">{{ desc }}</div>
+      </a>
+    {% endfor %}
+  </div>
+</div>
 {% endblock %}

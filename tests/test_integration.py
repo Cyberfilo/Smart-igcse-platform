@@ -202,16 +202,22 @@ def test_admin_login_and_user_creation(app, client):
     r2 = client.get("/admin/")
     assert r2.status_code == 200
 
+    # Email-based user creation: role + username are derived from the school
+    # domain + local part per routes/admin._parse_school_email.
     r3 = client.post(
         "/admin/users",
-        data={"email": "new@test", "role": "student", "syllabus_code": "0580"},
+        data={"email": "new.student@students.bdcschool.eu", "syllabus_code": "0580"},
     )
     assert r3.status_code == 200
-    # Password panel rendered once
     from models import User
 
     with app.app_context():
-        assert User.query.filter_by(email="new@test").first() is not None
+        u = User.query.filter_by(email="new.student@students.bdcschool.eu").first()
+        assert u is not None
+        assert u.username == "new.student"
+        assert u.role == "student"
+        # generated_password is stored for later CSV export.
+        assert u.generated_password is not None
 
 
 def test_student_cannot_access_admin(app, client):

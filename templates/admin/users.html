@@ -3,44 +3,198 @@
 {% block title %}Admin — Users{% endblock %}
 
 {% block body %}
-  <main class="container">
-    <header class="page-header">
-      <h1>Users</h1>
-      <p class="subtitle">Credentials are admin-issued. No public signup.</p>
-    </header>
+<div class="ds-page ds-fade-in">
+  <div class="ds-page-head">
+    <div>
+      <div style="font-size:12.5px; color:var(--ink-3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">Administration</div>
+      <h1 class="ds-page-title">Users</h1>
+      <div class="ds-page-sub">Add students and admins by their school email. Usernames are derived automatically.</div>
+    </div>
+    <div class="ds-segmented">
+      <a class="{% if not role_filter or role_filter == 'all' %}active{% endif %}"
+         href="{{ url_for('admin.users') }}">All · {{ counts.all }}</a>
+      <a class="{% if role_filter == 'student' %}active{% endif %}"
+         href="{{ url_for('admin.users', role='student') }}">Students · {{ counts.student }}</a>
+      <a class="{% if role_filter == 'admin' %}active{% endif %}"
+         href="{{ url_for('admin.users', role='admin') }}">Admins · {{ counts.admin }}</a>
+    </div>
+  </div>
 
-    {% if new_password %}
-      <article class="topic-card">
-        <div class="section-h">New password — copy now</div>
-        <div class="formula-box"><code>{{ new_password }}</code></div>
-        <div class="tip-box"><span class="tip-label">One-time</span>This password is not stored in plaintext and cannot be retrieved again. Paste it to the student now.</div>
-      </article>
-    {% endif %}
+  <div style="display:grid; grid-template-columns:300px 1fr; gap:24px; align-items:start;">
+    {# ── Left sidebar: add form + convention helper + just-created card ── #}
+    <div class="ds-col" style="gap:14px;">
+      <div class="ds-card" style="padding:18px;">
+        <div class="ds-label" style="margin-bottom:10px;">Add user</div>
+        <form method="post" id="add-form" class="ds-col" style="gap:10px;">
+          <div>
+            <label class="ds-label" for="email-input" style="margin-bottom:4px;">School email</label>
+            <input id="email-input" name="email" type="email" class="ds-input"
+                   placeholder="name.surname@{{ student_domain }}" required autocomplete="off">
+          </div>
 
-    <article class="topic-card">
-      <div class="section-h">Create user</div>
-      <form method="post" class="grid-2">
-        <label>Email <input type="email" name="email" required style="width:100%; padding:.4rem;"></label>
-        <label>Role
-          <select name="role"><option value="student">student</option><option value="admin">admin</option></select>
-        </label>
-        <label>Syllabus
-          <select name="syllabus_code">
-            <option value="">(none)</option>
-            {% for s in syllabi %}<option value="{{ s.code }}">{{ s.code }} — {{ s.name }}</option>{% endfor %}
-          </select>
-        </label>
-        <label>&nbsp;<button type="submit" class="nav-btn active" style="width:100%;">Create + issue password</button></label>
-      </form>
-    </article>
+          <div id="preview" class="ds-card" style="padding:12px; background:var(--paper-1); border-style:dashed; display:none;">
+            <div class="ds-label" style="margin-bottom:8px;">Will be created as</div>
+            <div class="ds-col" style="gap:6px; font-size:13px;">
+              <div><span style="color:var(--ink-3);">Username:</span>
+                <span class="mono" id="pv-username" style="font-weight:600;">—</span></div>
+              <div><span style="color:var(--ink-3);">Display:</span>
+                <span class="serif" id="pv-display" style="font-weight:500;">—</span></div>
+              <div><span style="color:var(--ink-3);">Role:</span>
+                <span id="pv-role" style="font-weight:500;">—</span></div>
+            </div>
+          </div>
+          <div id="preview-bad" style="display:none; font-size:12px; color:var(--err);"></div>
 
-    <article class="topic-card">
-      <div class="section-h">Existing users</div>
-      <ul class="fact-list">
-        {% for u in users %}
-          <li>{{ u.email }} · <em>{{ u.role }}</em> · syllabus {{ u.syllabus_id or '—' }} · created {{ u.created_at.strftime('%Y-%m-%d') }}</li>
-        {% endfor %}
-      </ul>
-    </article>
-  </main>
+          <div>
+            <label class="ds-label" for="syll-input" style="margin-bottom:4px;">Default syllabus (students only)</label>
+            <select id="syll-input" name="syllabus_code" class="ds-select">
+              <option value="">— none —</option>
+              {% for s in syllabi %}
+                <option value="{{ s.code }}">{{ s.code }} · {{ s.name | replace('Cambridge IGCSE ', '') }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <button type="submit" class="ds-btn ds-btn-primary" style="justify-content:center;">Create user</button>
+        </form>
+      </div>
+
+      {% if just_created %}
+        <div class="ds-card ds-slide-up" style="padding:16px; background:var(--amber-soft); border-color:var(--amber-line);">
+          <div class="ds-label" style="color:oklch(40% 0.1 75); margin-bottom:8px;">Credentials generated</div>
+          <div style="font-size:12px; color:var(--ink-2); margin-bottom:10px;">{{ just_created.email }}</div>
+          <div class="ds-col" style="gap:6px;">
+            <div class="ds-row" style="gap:8px;"><span style="color:var(--ink-3); font-size:11.5px; width:72px;">Display</span>
+              <span class="serif" style="font-weight:500;">{{ just_created.display_name }}</span></div>
+            <div class="ds-row" style="gap:8px;"><span style="color:var(--ink-3); font-size:11.5px; width:72px;">Username</span>
+              <span class="mono" style="font-weight:600; font-size:13.5px;">{{ just_created.username }}</span></div>
+            <div class="ds-row" style="gap:8px;"><span style="color:var(--ink-3); font-size:11.5px; width:72px;">Password</span>
+              <span class="mono" style="font-weight:600; font-size:13.5px; letter-spacing:-0.3px;" id="jc-pw">{{ just_created.password }}</span></div>
+          </div>
+          <div style="display:flex; gap:6px; margin-top:10px;">
+            <button type="button" id="copy-creds" class="ds-btn ds-btn-ghost ds-btn-sm" style="flex:1; background:var(--paper-0); justify-content:center;">Copy</button>
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="ds-card" style="padding:14px;">
+        <div class="ds-label" style="margin-bottom:6px;">Naming convention</div>
+        <div style="font-size:12.5px; color:var(--ink-2); line-height:1.55;">
+          Students — <span class="mono" style="font-size:11.5px;">name.surname@{{ student_domain }}</span><br>
+          Admins — <span class="mono" style="font-size:11.5px;">n.surname@{{ admin_domain }}</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Right: search + table ── #}
+    <div class="ds-card" style="padding:0; overflow:hidden;">
+      <div style="padding:14px 16px; border-bottom:1px solid var(--paper-2); display:flex; gap:10px; align-items:center;">
+        <form method="get" style="flex:1; display:flex; gap:8px;">
+          {% if role_filter and role_filter != 'all' %}
+            <input type="hidden" name="role" value="{{ role_filter }}">
+          {% endif %}
+          <input name="q" value="{{ q_search }}" class="ds-input" placeholder="Search by username or email…">
+        </form>
+        <a href="{{ url_for('admin.users_export') }}" class="ds-btn ds-btn-ghost ds-btn-sm">
+          ⬇ Export CSV
+        </a>
+      </div>
+
+      {% if users %}
+        <div>
+          {% for u in users %}
+            <div style="display:grid; grid-template-columns:36px 1.3fr 1.4fr 90px 1fr 100px; gap:14px; padding:12px 16px; border-bottom:1px solid var(--paper-2); align-items:center; font-size:13.5px;">
+              <div class="ds-avatar" style="background:linear-gradient(135deg, oklch(55% 0.12 {{ (u.email|length * 31) % 360 }}), oklch(45% 0.14 {{ ((u.email|length * 31) + 40) % 360 }}));">{{ u.initials }}</div>
+              <div>
+                <div class="mono" style="font-weight:600; font-size:13px;">{{ u.username or u.email.split('@')[0] }}</div>
+                <div style="color:var(--ink-3); font-size:11.5px;">{{ u.email }}</div>
+              </div>
+              <div class="serif" style="font-size:14px;">{{ u.display_name }}</div>
+              <div>
+                <span class="ds-badge {% if u.role == 'admin' %}ds-badge-indigo{% endif %}">{{ u.role }}</span>
+              </div>
+              <div>
+                {% if u.syllabus_id %}
+                  {% set syll = syllabi | selectattr('id', 'equalto', u.syllabus_id) | first %}
+                  {% if syll %}
+                    <span class="mono" style="font-size:11px; padding:2px 6px; background:var(--paper-2); border-radius:4px; color:var(--ink-2);">{{ syll.code }}</span>
+                  {% endif %}
+                {% else %}
+                  <span style="color:var(--ink-4); font-size:12px;">—</span>
+                {% endif %}
+              </div>
+              <div style="color:var(--ink-3); font-size:12px;">{{ u.created_at.strftime('%d %b %Y') }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="padding:40px; text-align:center; color:var(--ink-3);">
+          {% if q_search %}No users match "{{ q_search }}".{% else %}No users yet.{% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const email = document.getElementById('email-input');
+  const pv = document.getElementById('preview');
+  const bad = document.getElementById('preview-bad');
+  const vUsername = document.getElementById('pv-username');
+  const vDisplay = document.getElementById('pv-display');
+  const vRole = document.getElementById('pv-role');
+
+  const STUDENT_DOM = "{{ student_domain }}";
+  const ADMIN_DOM = "{{ admin_domain }}";
+
+  function parse(e) {
+    const lower = (e || "").trim().toLowerCase();
+    const stu = lower.match(/^([a-z]+\.[a-z]+)@(.+)$/);
+    if (stu && stu[2] === STUDENT_DOM) return ["student", stu[1]];
+    const adm = lower.match(/^([a-z]\.[a-z]+)@(.+)$/);
+    if (adm && adm[2] === ADMIN_DOM) return ["admin", adm[1]];
+    return null;
+  }
+  function titleCase(un) {
+    return un.split('.').map(p => p ? p[0].toUpperCase() + p.slice(1) : '').join(' ');
+  }
+
+  function update() {
+    const v = email.value;
+    if (!v) { pv.style.display = 'none'; bad.style.display = 'none'; return; }
+    const p = parse(v);
+    if (!p) {
+      pv.style.display = 'none';
+      bad.style.display = 'block';
+      bad.textContent = `Email must end with @${STUDENT_DOM} (student) or @${ADMIN_DOM} (admin).`;
+      return;
+    }
+    bad.style.display = 'none';
+    pv.style.display = 'block';
+    vUsername.textContent = p[1];
+    vDisplay.textContent = titleCase(p[1]);
+    vRole.textContent = p[0];
+  }
+  if (email) email.addEventListener('input', update);
+
+  const copyBtn = document.getElementById('copy-creds');
+  const pwEl = document.getElementById('jc-pw');
+  if (copyBtn && pwEl) {
+    copyBtn.addEventListener('click', () => {
+      const parent = copyBtn.closest('.ds-card');
+      const emailLine = parent.querySelector('div[style*="color:var(--ink-2)"]').textContent;
+      const rows = parent.querySelectorAll('.mono');
+      const username = rows[0].textContent;
+      const pw = pwEl.textContent;
+      const text = `${emailLine}\nusername: ${username}\npassword: ${pw}`;
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = copyBtn.textContent;
+        copyBtn.textContent = '✓ Copied';
+        setTimeout(() => { copyBtn.textContent = orig; }, 1500);
+      });
+    });
+  }
+})();
+</script>
 {% endblock %}

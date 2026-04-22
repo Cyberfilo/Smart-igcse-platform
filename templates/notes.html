@@ -3,89 +3,351 @@
 {% block title %}Notes — {{ syllabus.name }}{% endblock %}
 
 {% block body %}
-<div class="ds-page ds-fade-in">
-  <div class="ds-page-head">
-    <div>
-      <div style="font-size:12.5px; color:var(--ink-3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">
-        Notes · {{ syllabus.code }}
-      </div>
-      <h1 class="ds-page-title">{{ syllabus.name | replace('Cambridge IGCSE ', '') }}</h1>
-      <div class="ds-page-sub">Pick an area to see its topics — or browse all.</div>
-    </div>
-    <div class="ds-row" style="gap:14px; font-size:12.5px; color:var(--ink-3);">
-      <span><span class="mono">{{ topics|length }}</span> topics · <span class="mono">{{ areas|length }}</span> areas</span>
-    </div>
-  </div>
-  <main class="container" style="max-width:none;">
-    <header class="page-header" style="display:none;">
-      <h1>{{ syllabus.name }}</h1>
-    </header>
+<div class="ds-page ds-fade-in" style="max-width:none; padding:20px 24px 40px;">
+  <div style="display:grid; grid-template-columns:340px 1fr; gap:20px; align-items:start;">
 
-    {# Area tiles — primary landing. Click one → drills into that area. #}
-    <h2 class="module-heading">Syllabus areas</h2>
-    <section class="area-grid" id="area-grid">
-      {% for area_code, area_name in areas %}
-        {% set area_topics = topics | selectattr('area_code', 'equalto', area_code) | list %}
-        <button class="area-tile" data-area="{{ area_code }}">
-          <div class="area-tile-code">{{ area_code }}</div>
-          <div class="area-tile-name">{{ area_name }}</div>
-          <div class="area-tile-count">{{ area_topics|length }} topic{{ 's' if area_topics|length != 1 else '' }}</div>
-        </button>
-      {% endfor %}
-    </section>
-
-    {# Area view — hidden until an area is picked. Topic jump nav + cards for that area only. #}
-    <section class="area-view" id="area-view" hidden>
-      <div class="area-view-header">
-        <button class="area-back" id="area-back" aria-label="Back to areas">&larr; All areas</button>
-        <h2 class="module-heading" id="area-view-title" style="margin:0;"></h2>
+    {# ── Tree picker (sticky left) ────────────────────────────── #}
+    <div class="ds-card" id="notes-tree" style="padding:0; overflow:hidden;
+         position:sticky; top:80px; max-height:calc(100vh - 100px);
+         display:flex; flex-direction:column;">
+      <div style="padding:14px; border-bottom:1px solid var(--paper-2);">
+        <div style="position:relative;">
+          <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--ink-3); font-size:13px;">⌕</span>
+          <input id="notes-search" class="ds-input" style="padding-left:32px; font-size:13px;"
+                 placeholder="Search {{ topics|length }} topics…" autocomplete="off">
+        </div>
+        <div style="font-size:11.5px; color:var(--ink-3); margin-top:8px; display:flex; justify-content:space-between;">
+          <span>{{ topics|length }} topics · {{ areas|length }} areas</span>
+          <span><kbd>/</kbd></span>
+        </div>
       </div>
 
-      <nav class="topic-nav" id="topic-nav">
-        {# Populated per-area by JS #}
-      </nav>
+      <div style="overflow-y:auto; flex:1;">
+        {% for area_code, area_name in areas %}
+          {% set area_topics = topics | selectattr('area_code', 'equalto', area_code) | list %}
+          <div class="ds-tree" data-area="{{ area_code }}">
+            <button class="ds-tree-head" data-toggle="{{ area_code }}">
+              <span class="bar" style="background:{% if area_topics %}{{ area_topics[0].color_class }}{% endif %};"
+                    data-color-class="{% if area_topics %}{{ area_topics[0].color_class }}{% endif %}"></span>
+              <span class="name">{{ area_name }}</span>
+              <span class="count">{{ area_topics|length }}</span>
+              <span class="chev" style="color:var(--ink-3); transition:transform 0.2s;">›</span>
+            </button>
+            <div class="ds-tree-body" data-body="{{ area_code }}" {% if not loop.first %}hidden{% endif %}>
+              {% for t in area_topics %}
+                {% set note = t.notes[0] if t.notes else None %}
+                {% if note %}
+                  <button class="ds-tree-item"
+                          data-note="{{ t.id }}"
+                          data-topic-name="{{ t.name }}"
+                          data-topic-ref="{{ t.syllabus_ref or '' }}"
+                          data-color-class="{{ t.color_class }}"
+                          data-area-name="{{ t.area_name or t.area_code }}">
+                    <span class="ds-mastery-dot"></span>
+                    <span>{{ t.name }}</span>
+                  </button>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
 
-      <div class="topic-cards" id="topic-cards">
+    {# ── Note reader (right) ──────────────────────────────────── #}
+    <div class="ds-col" style="gap:14px;">
+      <div class="ds-card" id="reader-header" style="padding:20px 28px; display:flex; justify-content:space-between; align-items:center; gap:14px;">
+        <div>
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:4px;">
+            <span id="rh-bar" style="width:4px; height:14px; border-radius:2px; background:var(--paper-4);"></span>
+            <span id="rh-area" style="font-size:11.5px; color:var(--ink-3); text-transform:uppercase; letter-spacing:0.05em;">Select a topic</span>
+          </div>
+          <h2 id="rh-title" class="serif" style="margin:0; font-size:26px; font-weight:500;">{{ syllabus.name | replace('Cambridge IGCSE ', '') }}</h2>
+          <div id="rh-ref" style="font-size:12px; color:var(--ink-3); margin-top:6px;">{{ syllabus.code }}</div>
+        </div>
+        <div class="ds-row" style="gap:6px;">
+          <button id="chat-open" class="ds-btn ds-btn-primary" disabled>
+            ✨ Ask about this
+          </button>
+        </div>
+      </div>
+
+      {# Each topic's note body. Only the selected one is visible; all others are display:none. #}
+      <div id="reader-body">
         {% for t in topics %}
           {% set note = t.notes[0] if t.notes else None %}
           {% if note %}
-            <article class="topic-card" data-id="{{ t.number }}" data-area="{{ t.area_code or 'other' }}" data-short="{{ t.short_name or t.name }}">
-              <div class="topic-header">
-                <div class="topic-num {{ t.color_class }}">{{ t.number }}</div>
-                <h3 class="topic-title">{{ t.name }} <span class="extended-tag">{{ t.syllabus_ref or '' }}</span></h3>
-              </div>
-              {{ note.content_html | safe }}
-
-              <div class="topic-chat" data-topic-id="{{ t.id }}">
-                <button class="chat-open" type="button">💬 Ask Claude about this topic</button>
-                <div class="chat-panel" hidden>
-                  <div class="chat-log" aria-live="polite"></div>
-                  <form class="chat-form">
-                    <input type="text" class="chat-input" placeholder="e.g. can you give another example?" required>
-                    <button type="submit" class="nav-btn active">Send</button>
-                  </form>
-                  <div class="chat-hint">Replies are AI-generated; double-check with a teacher for exam-critical details.</div>
+            <article class="ds-note-paper serif note-body" id="note-{{ t.id }}" style="display:none;">
+              <div class="topic-card" data-id="{{ t.number }}">
+                <div class="topic-header">
+                  <div class="topic-num {{ t.color_class }}">{{ t.number }}</div>
+                  <h3 class="topic-title">{{ t.name }} <span class="extended-tag">{{ t.syllabus_ref or '' }}</span></h3>
                 </div>
+                {{ note.content_html | safe }}
               </div>
             </article>
           {% endif %}
         {% endfor %}
+        <div id="reader-empty" class="ds-card" style="padding:60px; text-align:center; color:var(--ink-3);">
+          <div style="font-size:32px; margin-bottom:12px;">📚</div>
+          <div class="serif" style="font-size:18px; color:var(--ink-1);">Pick a topic from the left</div>
+          <div style="font-size:13px; margin-top:6px;">Tap <kbd>/</kbd> to search</div>
+        </div>
       </div>
-    </section>
-
-    <aside class="strategy-box">
-      <div class="section-h" style="margin-top: 0;">Universal exam strategy</div>
-      <ul class="fact-list">
-        <li>Show every step — method marks count</li>
-        <li>Keep exact values (fractions, surds, π) until the last step</li>
-        <li>Check units on motion and mensuration questions</li>
-        <li>Re-read the question after solving — are you answering what was asked?</li>
-      </ul>
-    </aside>
-
-    <footer class="page-footer">
-      <p>{{ syllabus.name }} · Cambridge Syllabus</p>
-    </footer>
-  </main>
+    </div>
+  </div>
 </div>
+
+{# Slide-in chat panel — hidden by default. #}
+<div id="chat-backdrop" class="ds-panel-backdrop" style="display:none;"></div>
+<aside id="chat-panel" class="ds-panel" style="display:none;">
+  <header style="padding:14px 18px; border-bottom:1px solid var(--paper-2); display:flex; justify-content:space-between; align-items:center; gap:10px;">
+    <div style="display:flex; gap:10px; align-items:center;">
+      <div style="width:32px; height:32px; border-radius:8px; background:var(--ink-0); color:var(--paper-0); display:grid; place-items:center;">✨</div>
+      <div>
+        <div style="font-size:14px; font-weight:600;">Ask more about this</div>
+        <div id="chat-title" style="font-size:11.5px; color:var(--ink-3);">—</div>
+      </div>
+    </div>
+    <button id="chat-close" class="ds-btn ds-btn-ghost ds-btn-sm" style="padding:6px; border:0;">✕</button>
+  </header>
+
+  <div id="chat-log" style="flex:1; overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:14px;"></div>
+
+  <div id="chat-suggestions" style="padding:0 18px 10px; display:flex; flex-wrap:wrap; gap:6px;">
+    <button class="ds-btn ds-btn-ghost ds-btn-sm" data-sug="Explain it more simply">Explain simply</button>
+    <button class="ds-btn ds-btn-ghost ds-btn-sm" data-sug="Give me a worked example">Worked example</button>
+    <button class="ds-btn ds-btn-ghost ds-btn-sm" data-sug="What's a common mistake?">Common mistakes</button>
+  </div>
+
+  <footer style="padding:14px; border-top:1px solid var(--paper-2);">
+    <form id="chat-form" style="display:flex; gap:8px; align-items:flex-end; background:var(--paper-1); border:1px solid var(--paper-3); border-radius:var(--r); padding:6px;">
+      <textarea id="chat-input" placeholder="Ask a follow-up…" rows="1"
+        style="flex:1; border:0; background:transparent; outline:none; padding:6px 8px; font-size:13.5px; resize:none; font-family:inherit; min-height:24px; max-height:120px; color:var(--ink-0);"></textarea>
+      <button type="submit" class="ds-btn ds-btn-primary ds-btn-sm" id="chat-send" style="padding:8px 12px;">↵</button>
+    </form>
+  </footer>
+</aside>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const tree = document.getElementById('notes-tree');
+  const readerBody = document.getElementById('reader-body');
+  const readerEmpty = document.getElementById('reader-empty');
+  const rhBar = document.getElementById('rh-bar');
+  const rhArea = document.getElementById('rh-area');
+  const rhTitle = document.getElementById('rh-title');
+  const rhRef = document.getElementById('rh-ref');
+  const chatOpenBtn = document.getElementById('chat-open');
+  const chatPanel = document.getElementById('chat-panel');
+  const chatBackdrop = document.getElementById('chat-backdrop');
+  const chatClose = document.getElementById('chat-close');
+  const chatTitle = document.getElementById('chat-title');
+  const chatLog = document.getElementById('chat-log');
+  const chatForm = document.getElementById('chat-form');
+  const chatInput = document.getElementById('chat-input');
+  const chatSuggestions = document.getElementById('chat-suggestions');
+
+  let currentTopic = null; // {id, name, ref, areaName, colorClass}
+  let history = [];        // [{role, content}]
+
+  // Expand/collapse an area head.
+  tree.addEventListener('click', (e) => {
+    const head = e.target.closest('.ds-tree-head');
+    const item = e.target.closest('.ds-tree-item');
+    if (head) {
+      const area = head.dataset.toggle;
+      const body = tree.querySelector(`[data-body="${area}"]`);
+      const chev = head.querySelector('.chev');
+      if (!body) return;
+      const open = !body.hasAttribute('hidden');
+      if (open) {
+        body.setAttribute('hidden', '');
+        if (chev) chev.style.transform = 'none';
+      } else {
+        body.removeAttribute('hidden');
+        if (chev) chev.style.transform = 'rotate(90deg)';
+      }
+      return;
+    }
+    if (item) {
+      selectNote(item);
+    }
+  });
+
+  function selectNote(btn) {
+    // Mark active
+    tree.querySelectorAll('.ds-tree-item.active').forEach(el => el.classList.remove('active'));
+    btn.classList.add('active');
+
+    // Swap visible note
+    readerEmpty.style.display = 'none';
+    readerBody.querySelectorAll('.note-body').forEach(el => el.style.display = 'none');
+    const target = document.getElementById('note-' + btn.dataset.note);
+    if (target) target.style.display = 'block';
+
+    // Update header
+    const colorClass = btn.dataset.colorClass;
+    const probe = document.createElement('div');
+    probe.className = colorClass;
+    document.body.appendChild(probe);
+    const color = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    rhBar.style.background = color || 'var(--paper-4)';
+    rhArea.textContent = btn.dataset.areaName;
+    rhTitle.textContent = btn.dataset.topicName;
+    rhRef.textContent = btn.dataset.topicRef || '';
+
+    currentTopic = {
+      id: btn.dataset.note,
+      name: btn.dataset.topicName,
+      ref: btn.dataset.topicRef,
+      areaName: btn.dataset.areaName,
+    };
+    chatOpenBtn.disabled = false;
+
+    // Re-typeset math in the visible note.
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      window.MathJax.typesetPromise([target]).catch(() => {});
+    }
+  }
+
+  // Search filter
+  const search = document.getElementById('notes-search');
+  search.addEventListener('input', () => {
+    const q = search.value.trim().toLowerCase();
+    tree.querySelectorAll('.ds-tree').forEach(area => {
+      let anyVisible = false;
+      area.querySelectorAll('.ds-tree-item').forEach(item => {
+        const match = !q || item.textContent.toLowerCase().includes(q);
+        item.style.display = match ? 'flex' : 'none';
+        if (match) anyVisible = true;
+      });
+      area.style.display = anyVisible ? 'block' : 'none';
+      // Auto-expand areas with matches while searching
+      const body = area.querySelector('.ds-tree-body');
+      if (q && anyVisible && body) body.removeAttribute('hidden');
+    });
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement !== search) {
+      e.preventDefault();
+      search.focus();
+    }
+  });
+
+  // ── Chat panel ──────────────────────────────────
+  function openChat() {
+    if (!currentTopic) return;
+    chatPanel.style.display = 'flex';
+    chatBackdrop.style.display = 'block';
+    chatTitle.textContent = currentTopic.name;
+    // Reset history + intro only on first open for a topic.
+    if (chatLog.dataset.topicId !== currentTopic.id) {
+      history = [];
+      chatLog.innerHTML = '';
+      appendMsg('assistant', `I'm here to help with "${currentTopic.name}". What's unclear, or what would you like to explore?`);
+      chatLog.dataset.topicId = currentTopic.id;
+    }
+    chatSuggestions.style.display = history.length ? 'none' : 'flex';
+    setTimeout(() => chatInput.focus(), 100);
+  }
+  function closeChat() {
+    chatPanel.style.display = 'none';
+    chatBackdrop.style.display = 'none';
+  }
+  chatOpenBtn.addEventListener('click', openChat);
+  chatClose.addEventListener('click', closeChat);
+  chatBackdrop.addEventListener('click', closeChat);
+
+  function appendMsg(role, text) {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `display:flex; gap:10px; align-items:flex-start; flex-direction:${role === 'user' ? 'row-reverse' : 'row'};`;
+    const bubble = document.createElement('div');
+    bubble.style.cssText = `padding:10px 14px; border-radius:14px;
+      border-bottom-${role === 'user' ? 'right' : 'left'}-radius:4px;
+      background:${role === 'user' ? 'var(--ink-0)' : 'var(--paper-1)'};
+      color:${role === 'user' ? 'var(--paper-0)' : 'var(--ink-1)'};
+      font-size:13.5px; line-height:1.55; max-width:78%;`;
+    bubble.textContent = text;
+    if (role === 'assistant') {
+      const avatar = document.createElement('div');
+      avatar.style.cssText = 'width:26px; height:26px; border-radius:999px; background:var(--ink-0); color:var(--paper-0); display:grid; place-items:center; flex-shrink:0; font-size:12px;';
+      avatar.textContent = '✨';
+      wrap.appendChild(avatar);
+    }
+    wrap.appendChild(bubble);
+    chatLog.appendChild(wrap);
+    chatLog.scrollTop = chatLog.scrollHeight;
+    return bubble;
+  }
+  function appendTyping() {
+    const wrap = document.createElement('div');
+    wrap.id = 'typing';
+    wrap.style.cssText = 'display:flex; gap:10px; align-items:flex-start;';
+    wrap.innerHTML = `
+      <div style="width:26px; height:26px; border-radius:999px; background:var(--ink-0); color:var(--paper-0); display:grid; place-items:center;">✨</div>
+      <div style="padding:10px 14px; border-radius:14px; border-bottom-left-radius:4px; background:var(--paper-1); display:flex; gap:4px;">
+        <span style="width:6px; height:6px; border-radius:999px; background:var(--ink-3); animation:ds-pulse 1.2s infinite;"></span>
+        <span style="width:6px; height:6px; border-radius:999px; background:var(--ink-3); animation:ds-pulse 1.2s infinite; animation-delay:0.15s;"></span>
+        <span style="width:6px; height:6px; border-radius:999px; background:var(--ink-3); animation:ds-pulse 1.2s infinite; animation-delay:0.3s;"></span>
+      </div>`;
+    chatLog.appendChild(wrap);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+  function removeTyping() {
+    const t = document.getElementById('typing');
+    if (t) t.remove();
+  }
+
+  async function sendChat(text) {
+    if (!currentTopic || !text.trim()) return;
+    chatSuggestions.style.display = 'none';
+    appendMsg('user', text);
+    history.push({role: 'user', content: text});
+    appendTyping();
+    try {
+      const r = await fetch(`/api/chat/${currentTopic.id}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: text, history: history})
+      });
+      removeTyping();
+      const data = await r.json();
+      if (data.reply) {
+        appendMsg('assistant', data.reply);
+        history.push({role: 'assistant', content: data.reply});
+      } else {
+        appendMsg('assistant', '(no reply — please retry)');
+      }
+    } catch (e) {
+      removeTyping();
+      appendMsg('assistant', '(network error — please retry)');
+    }
+  }
+
+  chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = chatInput.value.trim();
+    if (!text) return;
+    chatInput.value = '';
+    sendChat(text);
+  });
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      chatForm.requestSubmit();
+    }
+  });
+  chatSuggestions.querySelectorAll('button[data-sug]').forEach(b => {
+    b.addEventListener('click', () => sendChat(b.dataset.sug));
+  });
+
+  // Auto-select the first note on load.
+  const first = tree.querySelector('.ds-tree-item');
+  if (first) selectNote(first);
+})();
+</script>
 {% endblock %}

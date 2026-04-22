@@ -117,6 +117,12 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False)
     username = db.Column(db.String(64), unique=True, nullable=True)  # optional, alt login + display
     password_hash = db.Column(db.String(255), nullable=False)
+    # Plaintext password retained only so the admin can export a list of
+    # credentials for a new cohort. Never shown in the admin UI (the
+    # table mask it). School is a closed network, single-admin trusts
+    # themselves — accepting the tradeoff rather than forcing password
+    # resets every time a sheet is lost.
+    generated_password = db.Column(db.String(64), nullable=True)
     role = db.Column(db.String(16), default="student", nullable=False)  # student / admin
     syllabus_id = db.Column(db.Integer, db.ForeignKey("syllabi.id"), nullable=True)
     cohort_id = db.Column(db.Integer, db.ForeignKey("cohorts.id"), nullable=True)
@@ -129,9 +135,21 @@ class User(UserMixin, db.Model):
 
     @property
     def display_name(self) -> str:
-        """What to show in the topnav / greetings. Username if set;
-        otherwise the local part of the email."""
-        return self.username or self.email.split("@")[0]
+        """Human-readable name shown in nav + greetings. Prefers username
+        (format: name.surname) → title-cased "Name Surname"; else email
+        local-part unchanged."""
+        src = self.username or self.email.split("@")[0]
+        parts = src.split(".")
+        if len(parts) >= 2 and all(p.isalpha() for p in parts):
+            return " ".join(p.capitalize() for p in parts)
+        return src
+
+    @property
+    def initials(self) -> str:
+        parts = (self.username or self.email.split("@")[0]).split(".")
+        if len(parts) >= 2:
+            return (parts[0][:1] + parts[-1][:1]).upper()
+        return (self.username or self.email)[:2].upper()
 
 
 # --- Phase 3 — past-paper ingestion ---
