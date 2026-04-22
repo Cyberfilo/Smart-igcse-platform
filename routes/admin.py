@@ -267,6 +267,13 @@ def ingest_upload():
                 if norm.startswith("..") or os.path.isabs(norm):
                     skipped += 1
                     continue
+                # Drop macOS Finder metadata: __MACOSX/ parent folder and
+                # per-file AppleDouble ._* sidecars. These are junk that just
+                # clogs the ingest log with 'unparseable filename' warnings.
+                basename = os.path.basename(norm)
+                if "__MACOSX" in norm.split(os.sep) or basename.startswith("._"):
+                    skipped += 1
+                    continue
                 dest = target / norm
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 with zf.open(member) as src, dest.open("wb") as out:

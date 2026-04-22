@@ -56,4 +56,5 @@ prototype-data/
 
 # Past-paper PDFs — 260+ MB, uploaded via admin zip route, live on Railway volume
 past_papers/
+past_papers*.zip
 

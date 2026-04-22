@@ -95,14 +95,29 @@ def parse_filename(name: str) -> ParsedFilename | None:
 
 # ── pymupdf extraction ──
 
-# Detected via inspection of sample papers. May need tuning per syllabus.
-QNUM_FONT_SIZE_MIN = 11.5   # question numbers are 12pt+
+# Empirically calibrated against 0580 Feb/March 2018 papers — the font is
+# TimesNewRomanPS-BoldMT @ 11.0pt for question numbers AND page numbers, so
+# size alone isn't enough — we also use y-range to exclude the page-number
+# strip at the top of every page and the UCLES/copyright strip at the bottom.
+QNUM_FONT_SIZE_MIN = 11.0
 BOLD_FLAG = 16              # bit in span.flags indicating bold (pymupdf convention)
 
-# Skip pages that are never useful content. Cover=1, formula sheet=2 (0580),
-# last 2 pages=copyright/blank. We look between 2 (exclusive) and len-2.
-FIRST_CONTENT_PAGE = 2   # 0-indexed; skip cover + formula sheet
-LAST_CONTENT_TAIL = 2    # last N pages skipped
+# Page-range policy:
+#   Page 0: cover — always skip (logo/syllabus/session banner, no question text).
+#   Page 1+: question content starts here. Some 0580 variants have a formula
+#            sheet on page 1 — our y-range filter keeps it out of the question
+#            stream since formula-box text isn't bold integers at qnum y-positions.
+#   Last page: often "Permission to reproduce…" + blank. Scanning it is cheap;
+#              blank pages produce no spans, and the copyright page has no bold
+#              monotonic digit sequence, so the monotone-check rejects anything.
+FIRST_CONTENT_PAGE = 1
+LAST_CONTENT_TAIL = 0
+
+# Y-range inside a page (in PDF points; A4 portrait is 841.89 pt tall).
+#   Top 50 pt: running header with printed page number — skip.
+#   Bottom 40 pt: UCLES © + paper code + '[Turn over' — skip.
+Y_HEADER_CUTOFF = 50.0
+Y_FOOTER_MARGIN = 40.0
 
 # IGCSE question numbers are 1..~30. Prevents random '1990' in a year from being
 # misread as a question number.
@@ -139,17 +154,31 @@ class _TextBlock:
 
 def _iter_blocks(doc: fitz.Document) -> list[_TextBlock]:
     """Flatten all text spans across content pages into a reading-order stream,
-    flagging bold-integer spans as question-number candidates."""
+    flagging bold-integer spans as question-number candidates.
+
+    Filters applied:
+      - Skip cover page (FIRST_CONTENT_PAGE=1)
+      - Skip header strip (y < Y_HEADER_CUTOFF) — catches printed page numbers
+      - Skip footer strip (y > page_height - Y_FOOTER_MARGIN) — catches UCLES
+        copyright line and '[Turn over' markers
+      - Require bold + size ≥ 11.0 + pure digit text for qnum candidates
+    """
     out: list[_TextBlock] = []
     for pno in _content_page_range(doc):
         page = doc.load_page(pno)
+        page_height = page.rect.height
+        y_max = page_height - Y_FOOTER_MARGIN
         d = page.get_text("dict")
         for block in d.get("blocks", []):
             if block.get("type", 0) != 0:  # 0=text, 1=image
                 continue
             for line in block.get("lines", []):
-                line_text = "".join(s.get("text", "") for s in line.get("spans", []))
                 y = line.get("bbox", [0, 0, 0, 0])[1]
+                # Y-range filter — excludes header page-number strip and footer copyright.
+                if y < Y_HEADER_CUTOFF or y > y_max:
+                    continue
+
+                line_text = "".join(s.get("text", "") for s in line.get("spans", []))
 
                 # Question-number detection: the line's first span is a small
                 # bold integer on its own (with optional trailing whitespace
