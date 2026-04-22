@@ -395,6 +395,18 @@ def ingest_images():
                 if not basename.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
                     skipped += 1
                     continue
+                # Strip a leading `images/` directory if the user zipped from
+                # above local_ingest/images instead of from inside it. The
+                # DB paths are /media/past-papers/_images/<syll>/… so any
+                # extra prefix would 404. Matches one-off zips produced by
+                # `zip -r images.zip images/`.
+                parts = norm.split(os.sep)
+                if parts and parts[0].lower() == "images":
+                    parts = parts[1:]
+                if not parts:
+                    skipped += 1
+                    continue
+                norm = os.path.join(*parts)
                 dest = target / norm
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 with zf.open(member) as src, dest.open("wb") as out:

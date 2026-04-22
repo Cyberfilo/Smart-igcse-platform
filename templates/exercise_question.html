@@ -34,7 +34,14 @@
   <div style="display:grid; grid-template-columns:1fr 360px; gap:24px;">
     {# LEFT: question card with full body + subpart prompts. #}
     <div class="ds-card" style="padding:32px;">
-      {% if question.body_html %}
+      {# Render the question stem ONLY if it adds something the subparts
+         don't already carry. For single-subpart questions the cleanup layer
+         often duplicated the body across stem + subpart — suppress the stem
+         in that case, but keep any <img> diagrams it contains. #}
+      {% set stem_has_text = question.body_html and question.body_html|striptags|trim|length > 20 %}
+      {% set stem_has_img = question.body_html and '<img' in question.body_html %}
+      {% set show_stem = (subparts|length > 1 and stem_has_text) or stem_has_img %}
+      {% if show_stem %}
         <div class="serif" style="font-size:18px; line-height:1.65; color:var(--ink-0); margin-bottom:22px;">
           {{ question.body_html | safe }}
         </div>
