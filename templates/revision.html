@@ -136,15 +136,25 @@
 
 <script>
 (function(){
-  document.querySelectorAll('.rev-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const idx = item.dataset.idx;
-      document.querySelectorAll('.rev-item').forEach(el => el.style.background = 'transparent');
-      item.style.background = 'var(--paper-2)';
-      document.querySelectorAll('.rev-content').forEach(el => {
-        el.classList.toggle('hidden-rev', el.dataset.idx !== idx);
-      });
+  // Delegated click handler: catches .rev-item clicks anywhere in the page,
+  // including rows swapped in later by HTMX (after marking done/pending) so
+  // re-rendered rows stay clickable without re-binding.
+  document.addEventListener('click', (e) => {
+    const item = e.target.closest('.rev-item');
+    if (!item) return;
+    const idx = item.dataset.idx;
+    if (idx === undefined || idx === '') return;
+    document.querySelectorAll('.rev-item').forEach(el => el.style.background = 'transparent');
+    item.style.background = 'var(--paper-2)';
+    document.querySelectorAll('.rev-content').forEach(el => {
+      el.classList.toggle('hidden-rev', el.dataset.idx !== idx);
     });
+    // Re-typeset MathJax in the newly-visible card. Same trick as /notes:
+    // the right-pane content is a different rev-content element each click.
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      const visible = document.querySelector('.rev-content:not(.hidden-rev)');
+      if (visible) window.MathJax.typesetPromise([visible]).catch(() => {});
+    }
   });
 })();
 </script>

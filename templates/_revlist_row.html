@@ -1,20 +1,38 @@
 {# A single row in the user-curated revision list (shown in /revision).
-   Re-rendered on each toggle of "done"; deleted on "remove". #}
+   Re-rendered on each toggle of "done"; deleted on "remove".
+
+   The topic-info span is rendered as a `.rev-item` button when the topic is
+   pre-rendered in #rev-stage (i.e. its id is in topic_to_idx). Clicking it
+   swaps that pre-rendered card into view, mirroring the auto-queue UX.
+   Done items are not clickable — they sit in the list as a memento. #}
 {% set done = item.completed_at is not none %}
+{% set idx = (topic_to_idx or {}).get(item.topic_id) %}
+{% set clickable = (not done) and (idx is not none) %}
 <div class="revlist-row"
-     style="display:flex; gap:6px; padding:9px 12px;
+     style="display:flex; gap:4px; padding:6px 8px 6px 4px;
             border-bottom:1px solid var(--paper-2); align-items:center;
             {% if done %}opacity:0.55;{% endif %}">
-  <span style="flex:1; min-width:0;">
-    <div style="font-size:13px; color:var(--ink-0);
-                {% if done %}text-decoration: line-through;{% endif %}">
-      {{ item.topic.name }}
-    </div>
-    <div style="font-size:11px; color:var(--ink-3); margin-top:1px;">
-      {{ item.topic.syllabus_ref or 'Topic ' ~ item.topic.number }}
-    </div>
-  </span>
-  <button title="{% if done %}Mark as pending{% else %}Mark as done{% endif %}"
+  {% if clickable %}
+    <button type="button" class="rev-item" data-idx="{{ idx }}"
+            style="flex:1; min-width:0; text-align:left; background:transparent; border:0;
+                   padding:6px 10px; cursor:pointer; border-radius:6px;
+                   display:flex; flex-direction:column; gap:2px; color:inherit;">
+      <span style="font-size:13px; color:var(--ink-0);">{{ item.topic.name }}</span>
+      <span style="font-size:11px; color:var(--ink-3);">{{ item.topic.syllabus_ref or 'Topic ' ~ item.topic.number }}</span>
+    </button>
+  {% else %}
+    <span style="flex:1; min-width:0; padding:6px 10px;">
+      <div style="font-size:13px; color:var(--ink-0);
+                  {% if done %}text-decoration: line-through;{% endif %}">
+        {{ item.topic.name }}
+      </div>
+      <div style="font-size:11px; color:var(--ink-3); margin-top:1px;">
+        {{ item.topic.syllabus_ref or 'Topic ' ~ item.topic.number }}
+      </div>
+    </span>
+  {% endif %}
+  <button type="button"
+          title="{% if done %}Mark as pending{% else %}Mark as done{% endif %}"
           hx-post="{{ url_for('api.revlist_done', topic_id=item.topic_id) }}"
           hx-target="closest .revlist-row"
           hx-swap="outerHTML"
@@ -22,7 +40,8 @@
           style="padding:4px 8px; font-size:13px; line-height:1; border-radius:6px;">
     {% if done %}↺{% else %}✓{% endif %}
   </button>
-  <button title="Remove from your revision list"
+  <button type="button"
+          title="Remove from your revision list"
           hx-post="{{ url_for('api.revlist_remove', topic_id=item.topic_id) }}"
           hx-target="closest .revlist-row"
           hx-swap="outerHTML"

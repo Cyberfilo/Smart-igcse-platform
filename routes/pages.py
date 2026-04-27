@@ -487,6 +487,49 @@ def onboarding_style():
     return render_template("onboarding.html", quiz=QUIZ)
 
 
+def _revision_topic_order(user, syllabus_id: int) -> list[int]:
+    """Return the ordered list of topic_ids that /revision pre-renders.
+
+    Auto top-5 by ErrorProfile.weight, then user-curated my-list pending
+    items not already in that auto set. Pure DB queries — no LLM. Used both
+    by the /revision route (to drive `rendered`) and by the API endpoints
+    that re-render row partials and need to compute the matching data-idx.
+    """
+    from models import ErrorProfile, RevisionListItem
+
+    topics = (
+        Topic.query.filter_by(syllabus_id=syllabus_id)
+        .order_by(Topic.number)
+        .all()
+    )
+    weights = {
+        p.topic_id: p.weight
+        for p in ErrorProfile.query.filter_by(user_id=user.id).all()
+    }
+    topics.sort(key=lambda t: weights.get(t.id, 0.0), reverse=True)
+    auto_ids = [t.id for t in topics[:5]]
+    seen = set(auto_ids)
+    pending = (
+        RevisionListItem.query
+        .filter_by(user_id=user.id, completed_at=None)
+        .order_by(RevisionListItem.added_at.desc())
+        .all()
+    )
+    for m in pending:
+        if m.topic_id not in seen:
+            auto_ids.append(m.topic_id)
+            seen.add(m.topic_id)
+    return auto_ids
+
+
+def revlist_topic_to_idx(user) -> dict[int, int]:
+    """Topic-id → render-index mapping used by /revision and the revlist
+    row partials. Returns empty dict if the user has no syllabus selected."""
+    if not user.syllabus_id:
+        return {}
+    return {tid: i for i, tid in enumerate(_revision_topic_order(user, user.syllabus_id))}
+
+
 @pages_bp.route("/revision")
 @student_only
 def revision():
@@ -500,76 +543,68 @@ def revision():
     if syllabus is None:
         return redirect(url_for("pages.syllabus_select"))
 
-    topics = Topic.query.filter_by(syllabus_id=syllabus.id).order_by(Topic.number).all()
-
-    from models import ErrorProfile
+    from models import ErrorProfile, RevisionListItem
 
     profile_rows = (
         ErrorProfile.query.filter_by(user_id=current_user.id)
         .order_by(ErrorProfile.weight.desc())
         .all()
     )
-    priority = {p.topic_id: p.weight for p in profile_rows}
-    topics.sort(key=lambda t: priority.get(t.id, 0.0), reverse=True)
 
-    rendered: list[dict] = []
-    for t in topics[:5]:
-        # Compute cache key from current error snapshot for this topic.
+    # Build the ordered render set: auto top-5 + my-list pending (deduped).
+    ordered_ids = _revision_topic_order(current_user, syllabus.id)
+    topics_by_id = {
+        t.id: t for t in
+        Topic.query.filter(Topic.id.in_(ordered_ids)).all()
+    } if ordered_ids else {}
+    topics_to_render = [topics_by_id[i] for i in ordered_ids if i in topics_by_id]
+
+    def _build_rendered(t):
+        """One topic → one rendered dict. Hits cache; on miss, calls the
+        LLM (rate-limited). Closure over current_user/style/profile_rows."""
         snap = {"count": 0, "tags": []}
         ep = next((p for p in profile_rows if p.topic_id == t.id), None)
         if ep:
             snap["count"] = ep.count
         ck = compute_cache_key(current_user.id, t.id, style, snap)
-
         cached = (
-            RevisionNote.query.filter_by(
-                user_id=current_user.id, topic_id=t.id, style_used=style
-            )
+            RevisionNote.query
+            .filter_by(user_id=current_user.id, topic_id=t.id, style_used=style)
             .filter_by(cache_key=ck)
             .first()
         )
-        if cached is None:
-            # Cap LLM calls per day — revision page is expensive.
-            ok = bump_and_check(current_user.id, "revision_note", daily_cap=50)
-            if not ok:
-                rendered.append(
-                    {
-                        "topic": t,
-                        "html": "<article class='topic-card'><p class='topic-intro'>Daily revision-generation cap reached. Try again tomorrow.</p></article>",
-                    }
-                )
-                continue
-            canonical_html = (t.notes[0].content_html if t.notes else "")
-            html = generate_revision_note(
-                topic_name=t.name,
-                style=style,
-                error_tags=[],
-                topic_summary_html=canonical_html,
-                sr_overlay=bool(current_user.sr_overlay),
-            )
-            # Replace any stale row for this user/topic/style; cache_key is the
-            # invalidation signal.
-            RevisionNote.query.filter_by(
-                user_id=current_user.id, topic_id=t.id, style_used=style
-            ).delete()
-            rn = RevisionNote(
-                user_id=current_user.id,
-                topic_id=t.id,
-                generated_content_html=html,
-                style_used=style,
-                cache_key=ck,
-            )
-            db.session.add(rn)
-            db.session.commit()
-            rendered.append({"topic": t, "html": html})
-        else:
-            rendered.append({"topic": t, "html": cached.generated_content_html})
+        if cached is not None:
+            return {"topic": t, "html": cached.generated_content_html}
+        if not bump_and_check(current_user.id, "revision_note", daily_cap=50):
+            return {
+                "topic": t,
+                "html": "<article class='topic-card'><p class='topic-intro'>Daily revision-generation cap reached. Try again tomorrow.</p></article>",
+            }
+        canonical_html = (t.notes[0].content_html if t.notes else "")
+        html = generate_revision_note(
+            topic_name=t.name,
+            style=style,
+            error_tags=[],
+            topic_summary_html=canonical_html,
+            sr_overlay=bool(current_user.sr_overlay),
+        )
+        RevisionNote.query.filter_by(
+            user_id=current_user.id, topic_id=t.id, style_used=style
+        ).delete()
+        db.session.add(RevisionNote(
+            user_id=current_user.id, topic_id=t.id,
+            generated_content_html=html, style_used=style, cache_key=ck,
+        ))
+        db.session.commit()
+        return {"topic": t, "html": html}
+
+    rendered = [_build_rendered(t) for t in topics_to_render]
+    topic_to_idx = {r["topic"].id: i for i, r in enumerate(rendered)}
 
     from services.style_classifier import PROFILE_COLORS, PROFILE_NAMES, PROFILE_TAGLINES
 
-    # User-curated revision list — separate from the auto error-profile queue
-    # above. Pending items (completed_at IS NULL) come first, then done.
-    from models import RevisionListItem
+    # The full my-list (pending + done) drives the sidebar. Pending first,
+    # then done; most recently added first within each group.
     my_list = (
         RevisionListItem.query
         .filter_by(user_id=current_user.id)
@@ -591,4 +626,5 @@ def revision():
         sr_overlay=bool(current_user.sr_overlay),
         style_scores=current_user.learning_style_scores or {},
         my_list=my_list,
+        topic_to_idx=topic_to_idx,
     )

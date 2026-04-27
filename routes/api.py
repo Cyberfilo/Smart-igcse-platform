@@ -362,10 +362,14 @@ def revlist_toggle(topic_id: int):
 @student_only
 def revlist_done(topic_id: int):
     """Toggle the completed state on a revision-list row. Returns the row
-    partial so HTMX can swap it in place (with strikethrough or restored)."""
+    partial so HTMX can swap it in place (with strikethrough or restored).
+
+    Also passes the current topic→index mapping so a re-pending row picks up
+    its rev-item data-idx and stays clickable."""
     from datetime import datetime, timezone
 
     from models import RevisionListItem
+    from routes.pages import revlist_topic_to_idx
 
     item = RevisionListItem.query.filter_by(
         user_id=current_user.id, topic_id=topic_id
@@ -374,7 +378,11 @@ def revlist_done(topic_id: int):
         abort(404)
     item.completed_at = None if item.completed_at else datetime.now(timezone.utc)
     db.session.commit()
-    return render_template("_revlist_row.html", item=item)
+    return render_template(
+        "_revlist_row.html",
+        item=item,
+        topic_to_idx=revlist_topic_to_idx(current_user),
+    )
 
 
 @api_bp.route("/api/revision-list/<int:topic_id>/remove", methods=["POST"])
