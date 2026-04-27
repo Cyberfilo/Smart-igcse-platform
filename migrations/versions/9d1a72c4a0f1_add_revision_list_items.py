@@ -1,9 +1,17 @@
-"""add revision_list_items table for user-curated revision queue
+"""add revision_list_items table for user-curated revision queue (+ branch merge)
 
 Revision ID: 9d1a72c4a0f1
-Revises: e1f3a87b2d40
+Revises: 04ecaa67ad79, e1f3a87b2d40
 Create Date: 2026-04-27 09:30:00.000000
 
+This revision serves a dual purpose: it adds the new revision_list_items
+table AND merges two pre-existing parallel heads into a single chain. The
+heads were 04ecaa67ad79 (V/S/D learning-style scores + SR overlay) and
+e1f3a87b2d40 (users.current_password / must_change_password). Both declared
+down_revision='c624eb57dab9', creating a fork. Earlier deploys tolerated
+the branched state because only one head was unapplied at a time; this
+revision makes the chain linear again so future migrations don't trip on
+"Multiple head revisions are present".
 """
 from alembic import op
 import sqlalchemy as sa
@@ -11,7 +19,8 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '9d1a72c4a0f1'
-down_revision = 'e1f3a87b2d40'
+# Tuple = merge revision. Both prior heads must be applied before this runs.
+down_revision = ('04ecaa67ad79', 'e1f3a87b2d40')
 branch_labels = None
 depends_on = None
 
