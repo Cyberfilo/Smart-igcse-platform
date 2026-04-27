@@ -328,3 +328,7 @@ class RevisionListItem(db.Model):
     # marks it done while keeping it visible (with strikethrough). Removing
     # the row deletes the bookmark entirely.
     completed_at = db.Column(db.DateTime, nullable=True)
+
+    # Eager-loaded so the /revision template can read item.topic.name without
+    # firing N+1 queries when iterating my_list.
+    topic = db.relationship("Topic", lazy="joined")
