@@ -1,0 +1,22 @@
+{# Revision-list toggle button — used in /notes and self-rendered after every
+   HTMX toggle. `in_list` is the current state; clicking flips it. #}
+<form
+  hx-post="{{ url_for('api.revlist_toggle', topic_id=topic_id) }}"
+  hx-target="this"
+  hx-swap="outerHTML"
+  hx-headers='{"X-Requested-With": "htmx"}'
+  style="margin:0; display:inline-block;"
+>
+  {% if in_list %}
+    <button type="submit" class="ds-btn ds-btn-ghost ds-btn-sm"
+            title="In your revision list — click to remove"
+            style="border-color: var(--ink-3); color: var(--ink-1); background: var(--paper-2);">
+      ✓ In revision list
+    </button>
+  {% else %}
+    <button type="submit" class="ds-btn ds-btn-ghost ds-btn-sm"
+            title="Save this topic to your personal revision list">
+      ⊕ Add to revision
+    </button>
+  {% endif %}
+</form>

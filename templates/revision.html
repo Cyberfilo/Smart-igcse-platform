@@ -43,11 +43,36 @@
         {% endif %}
       </div>
 
+      {# User-curated revision list — bookmarks added from /notes. Distinct
+         from the auto Revision queue below (which is error-profile driven). #}
+      {% set pending_count = my_list | rejectattr('completed_at') | list | length %}
+      <div class="ds-card" style="padding:0; overflow:hidden;">
+        <div style="padding:12px 16px; border-bottom:1px solid var(--paper-2); display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:13px; font-weight:600;">My revision list</div>
+            <div style="font-size:11.5px; color:var(--ink-3);">
+              {{ pending_count }} pending{% if my_list | length > pending_count %} · {{ my_list | length - pending_count }} done{% endif %}
+            </div>
+          </div>
+          <span style="font-size:14px;">📌</span>
+        </div>
+        <div id="my-revlist">
+          {% for item in my_list %}
+            {% include "_revlist_row.html" %}
+          {% endfor %}
+          {% if not my_list %}
+            <div style="padding:18px 14px; text-align:center; font-size:12px; color:var(--ink-3); line-height:1.55;">
+              Bookmark topics from <a href="{{ url_for('pages.notes') }}" style="color:var(--ink-1); text-decoration: underline;">Notes</a> to build your study list.
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
       <div class="ds-card" style="padding:0; overflow:hidden;">
         <div style="padding:12px 16px; border-bottom:1px solid var(--paper-2); display:flex; justify-content:space-between; align-items:center;">
           <div>
             <div style="font-size:13px; font-weight:600;">Revision queue</div>
-            <div style="font-size:11.5px; color:var(--ink-3);">{{ rendered | length }} topic{{ '' if rendered | length == 1 else 's' }}</div>
+            <div style="font-size:11.5px; color:var(--ink-3);">{{ rendered | length }} topic{{ '' if rendered | length == 1 else 's' }} · auto-suggested</div>
           </div>
           <span style="font-size:14px;">🏷️</span>
         </div>

@@ -1,0 +1,34 @@
+{# A single row in the user-curated revision list (shown in /revision).
+   Re-rendered on each toggle of "done"; deleted on "remove". #}
+{% set done = item.completed_at is not none %}
+<div class="revlist-row"
+     style="display:flex; gap:6px; padding:9px 12px;
+            border-bottom:1px solid var(--paper-2); align-items:center;
+            {% if done %}opacity:0.55;{% endif %}">
+  <span style="flex:1; min-width:0;">
+    <div style="font-size:13px; color:var(--ink-0);
+                {% if done %}text-decoration: line-through;{% endif %}">
+      {{ item.topic.name }}
+    </div>
+    <div style="font-size:11px; color:var(--ink-3); margin-top:1px;">
+      {{ item.topic.syllabus_ref or 'Topic ' ~ item.topic.number }}
+    </div>
+  </span>
+  <button title="{% if done %}Mark as pending{% else %}Mark as done{% endif %}"
+          hx-post="{{ url_for('api.revlist_done', topic_id=item.topic_id) }}"
+          hx-target="closest .revlist-row"
+          hx-swap="outerHTML"
+          class="ds-btn ds-btn-ghost"
+          style="padding:4px 8px; font-size:13px; line-height:1; border-radius:6px;">
+    {% if done %}↺{% else %}✓{% endif %}
+  </button>
+  <button title="Remove from your revision list"
+          hx-post="{{ url_for('api.revlist_remove', topic_id=item.topic_id) }}"
+          hx-target="closest .revlist-row"
+          hx-swap="outerHTML"
+          hx-confirm="Remove this topic from your revision list?"
+          class="ds-btn ds-btn-ghost"
+          style="padding:4px 8px; font-size:13px; line-height:1; border-radius:6px; color:var(--ink-2);">
+    ✕
+  </button>
+</div>

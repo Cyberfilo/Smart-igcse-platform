@@ -1,0 +1,44 @@
+# IGCSE Review Platform — crawling policy
+#
+# This is a private/semi-private revision tool for IGCSE students. The login
+# wall blocks meaningful crawling anyway (only /login renders without auth),
+# but we declare an explicit policy here to satisfy well-behaved crawlers
+# and silence /robots.txt 404 noise in the access logs.
+
+User-agent: *
+Disallow: /admin
+Disallow: /api/
+Disallow: /exercise
+Disallow: /notes
+Disallow: /revision
+Disallow: /onboarding
+Disallow: /auth/
+Allow: /login
+Allow: /static/
+
+# AI training crawlers — opt out by default. The platform's content is
+# pedagogically curated; we'd rather it not be silently absorbed into
+# generic LLM training corpora.
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /

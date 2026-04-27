@@ -54,6 +54,37 @@ def _current_syllabus() -> Syllabus | None:
 # --- Phase 0 carry-over ---
 
 
+@pages_bp.route("/robots.txt")
+def robots_txt():
+    """Serve robots.txt at site root (browsers/crawlers hit /robots.txt,
+    not /static/robots.txt). Cached for 1 hour."""
+    from flask import send_from_directory
+    resp = send_from_directory(current_app.static_folder, "robots.txt", mimetype="text/plain")
+    resp.headers["Cache-Control"] = "public, max-age=3600"
+    return resp
+
+
+@pages_bp.route("/favicon.ico")
+def favicon_ico():
+    """Serve favicon.ico at root for browsers/crawlers that probe it directly."""
+    from flask import send_from_directory
+    resp = send_from_directory(current_app.static_folder, "favicon.ico",
+                               mimetype="image/vnd.microsoft.icon")
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
+@pages_bp.route("/favicon.svg")
+def favicon_svg():
+    """Serve favicon.svg — modern browsers prefer this via the <link rel='icon'>
+    tag in base.html (sharper at all sizes than the 16x16 ICO)."""
+    from flask import send_from_directory
+    resp = send_from_directory(current_app.static_folder, "favicon.svg",
+                               mimetype="image/svg+xml")
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
 @pages_bp.route("/health")
 def health():
     """Deploy smoke test — probes Postgres + volume."""
@@ -143,12 +174,23 @@ def notes():
         if t.area_code and t.area_code not in seen:
             seen[t.area_code] = t.area_name or t.area_code
     areas = list(seen.items())
+
+    # Topic IDs already in the user's revision list — used by the per-topic
+    # "⊕ Add to revision" / "✓ In revision list" toggle button.
+    from models import RevisionListItem
+    revlist_ids = {
+        r.topic_id for r in RevisionListItem.query
+        .with_entities(RevisionListItem.topic_id)
+        .filter_by(user_id=current_user.id)
+        .all()
+    }
     return render_template(
         "notes.html",
         syllabus=syllabus,
         topics=topics,
         areas=areas,
         today=date.today(),
+        revlist_ids=revlist_ids,
     )
 
 
@@ -525,6 +567,19 @@ def revision():
 
     from services.style_classifier import PROFILE_COLORS, PROFILE_NAMES, PROFILE_TAGLINES
 
+    # User-curated revision list — separate from the auto error-profile queue
+    # above. Pending items (completed_at IS NULL) come first, then done.
+    from models import RevisionListItem
+    my_list = (
+        RevisionListItem.query
+        .filter_by(user_id=current_user.id)
+        .order_by(
+            RevisionListItem.completed_at.is_(None).desc(),
+            RevisionListItem.added_at.desc(),
+        )
+        .all()
+    )
+
     return render_template(
         "revision.html",
         syllabus=syllabus,
@@ -535,4 +590,5 @@ def revision():
         style_taglines=PROFILE_TAGLINES,
         sr_overlay=bool(current_user.sr_overlay),
         style_scores=current_user.learning_style_scores or {},
+        my_list=my_list,
     )

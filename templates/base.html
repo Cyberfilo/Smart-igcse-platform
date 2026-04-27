@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}IGCSE Review Platform{% endblock %}</title>
 
+  {# Favicons — SVG preferred (sharper at all sizes), ICO fallback for older agents. #}
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('pages.favicon_svg') }}">
+  <link rel="alternate icon" type="image/x-icon" href="{{ url_for('pages.favicon_ico') }}">
+
   {# Google Fonts — Newsreader (serif), Inter Tight (sans), JetBrains Mono (mono). #}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

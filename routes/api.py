@@ -323,3 +323,71 @@ def _feedback_html(result: dict) -> str:
         "<div class='example-box'><span class='eg-label'>Where it went wrong</span>"
         f"{correction}</div>"
     )
+
+
+# --- Phase 9 — user-curated revision list ---
+#
+# All three endpoints return small HTML partials so HTMX can swap them in
+# place. They are POST-only so a stale tab can't unintentionally toggle a
+# row via a GET preload. Auth is enforced by @student_only.
+
+
+@api_bp.route("/api/revision-list/toggle/<int:topic_id>", methods=["POST"])
+@student_only
+def revlist_toggle(topic_id: int):
+    """Add the topic to the user's revision list, or remove it if already
+    present. Returns the updated button partial. Idempotent."""
+    from models import RevisionListItem
+
+    topic = db.session.get(Topic, topic_id)
+    if topic is None:
+        abort(404)
+
+    existing = RevisionListItem.query.filter_by(
+        user_id=current_user.id, topic_id=topic_id
+    ).first()
+    if existing:
+        db.session.delete(existing)
+        in_list = False
+    else:
+        db.session.add(RevisionListItem(
+            user_id=current_user.id, topic_id=topic_id,
+        ))
+        in_list = True
+    db.session.commit()
+    return render_template("_revlist_button.html", topic_id=topic_id, in_list=in_list)
+
+
+@api_bp.route("/api/revision-list/<int:topic_id>/done", methods=["POST"])
+@student_only
+def revlist_done(topic_id: int):
+    """Toggle the completed state on a revision-list row. Returns the row
+    partial so HTMX can swap it in place (with strikethrough or restored)."""
+    from datetime import datetime, timezone
+
+    from models import RevisionListItem
+
+    item = RevisionListItem.query.filter_by(
+        user_id=current_user.id, topic_id=topic_id
+    ).first()
+    if item is None:
+        abort(404)
+    item.completed_at = None if item.completed_at else datetime.now(timezone.utc)
+    db.session.commit()
+    return render_template("_revlist_row.html", item=item)
+
+
+@api_bp.route("/api/revision-list/<int:topic_id>/remove", methods=["POST"])
+@student_only
+def revlist_remove(topic_id: int):
+    """Delete a row from the user's revision list. Returns an empty body —
+    HTMX `hx-swap='outerHTML'` then removes the row from the DOM."""
+    from models import RevisionListItem
+
+    item = RevisionListItem.query.filter_by(
+        user_id=current_user.id, topic_id=topic_id
+    ).first()
+    if item is not None:
+        db.session.delete(item)
+        db.session.commit()
+    return ("", 200)

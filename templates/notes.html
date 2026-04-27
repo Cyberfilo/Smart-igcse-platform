@@ -83,6 +83,11 @@
                   <div class="topic-num {{ t.color_class }}">{{ t.number }}</div>
                   <h3 class="topic-title">{{ t.name }} <span class="extended-tag">{{ t.syllabus_ref or '' }}</span></h3>
                 </div>
+                <div style="display:flex; justify-content:flex-end; margin: 2px 0 14px;">
+                  {% with topic_id=t.id, in_list=(t.id in revlist_ids) %}
+                    {% include "_revlist_button.html" %}
+                  {% endwith %}
+                </div>
                 {{ note.content_html | safe }}
               </div>
             </article>

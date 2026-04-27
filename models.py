@@ -304,3 +304,27 @@ class RateLimit(db.Model):
     day = db.Column(db.Date, nullable=False)
     endpoint = db.Column(db.String(64), nullable=False)
     count = db.Column(db.Integer, default=0, nullable=False)
+
+
+# --- Phase 9 — user-curated revision list ---
+#
+# Distinct from RevisionNote (which caches LLM-generated re-explanations) and
+# from ErrorProfile (which drives auto-priority). This table lets a student
+# bookmark topics from /notes for personal review, mark them done, and remove
+# them — i.e. a manual study queue independent of error-profile heuristics.
+
+
+class RevisionListItem(db.Model):
+    __tablename__ = "revision_list_items"
+    __table_args__ = (
+        UniqueConstraint("user_id", "topic_id", name="uq_revlist_user_topic"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    topic_id = db.Column(db.Integer, db.ForeignKey("topics.id"), nullable=False)
+    added_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
+    # Nullable so a row represents "in list, pending"; setting completed_at
+    # marks it done while keeping it visible (with strikethrough). Removing
+    # the row deletes the bookmark entirely.
+    completed_at = db.Column(db.DateTime, nullable=True)
