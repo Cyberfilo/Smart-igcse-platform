@@ -1,67 +1,85 @@
-# IGCSE 0580/0654 Recap Platform
+# Smart IGCSE Platform
 
-Classroom-ready revision platform for Cambridge IGCSE 0580 (Mathematics) and 0654 (Coordinated Sciences). Currently serves a single static recap page for 0580; being scaled into a full platform per `.claude/state/plan.md`.
+Personal exam-prep platform I built for myself to study for Cambridge IGCSE 0580 (Mathematics) and 0654 (Coordinated Sciences). Past papers, notes, revision pages, and exercise sheets — pulled into a single Flask app with hybrid LLM-powered ingestion.
 
-- **Production**: https://igcse.menghi.dev (Railway-hosted Flask app, Cloudflare DNS)
-- **Exam date on page**: 29 Apr 2026
+I wrote this because the official Cambridge resources are scattered across PDFs, the unofficial revision sites are inconsistent in quality, and I needed a single navigable surface for my own studying. It's deployed on Railway with a 200GB Postgres volume.
 
-## Dev loop
+## Features
 
-All dev runs against Railway's real env vars + Postgres.
+- **Unified past-paper viewer** — papers from multiple sessions and variants, normalized into a consistent structure
+- **Notes pages** — topic-organized for both syllabi
+- **Revision summaries** — generated and curated from the source material
+- **Exercise pages** — interactive practice with worked answers
+- **Hybrid ingestion worker** — OpenAI-powered: chunks PDFs, extracts structured content, writes to Postgres directly
+- **Railway-native** — branch-tied environments, 200GB volume for storage of paper PDFs and extracted assets
+
+## Stack
+
+- **Backend**: Python 3, Flask, SQLAlchemy
+- **Database**: PostgreSQL (with a 200GB Railway volume for asset storage)
+- **AI**: OpenAI API for ingestion + content normalization
+- **Hosting**: Railway (auto-deploy from `staging` and `main` branches)
+- **Frontend**: server-rendered HTML + CSS (kept lean — this is a study tool, not a SaaS)
+
+## Architecture
+
+```
+┌─────────────────────────────┐
+│  Source PDFs / past papers  │
+└──────────────┬──────────────┘
+               │
+               ▼
+   ┌───────────────────────┐
+   │  Ingestion worker     │  ← OpenAI for chunk parsing, structure extraction
+   │  (Python, batch)      │
+   └──────────┬────────────┘
+              │
+              ▼
+   ┌───────────────────────┐
+   │  PostgreSQL           │  ← normalized: subjects, topics, papers, questions
+   │  (Railway volume)     │
+   └──────────┬────────────┘
+              │
+              ▼
+   ┌───────────────────────┐
+   │  Flask app            │  ← server-rendered, lean UI
+   └──────────┬────────────┘
+              │
+              ▼
+   ┌───────────────────────┐
+   │  My iPad in the morning │
+   └─────────────────────────┘
+```
+
+## Running locally
 
 ```bash
-# 1. Install deps into a local venv
-python3 -m venv .venv
+git clone https://github.com/Cyberfilo/Smart-igcse-platform.git
+cd Smart-igcse-platform
+
+python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# 2a. Run tests (SQLite in-memory — no Railway needed)
-pytest
+cp .env.example .env
+# Fill in: DATABASE_URL, OPENAI_API_KEY
 
-# 2b. Run the app against Railway env vars + Postgres
-railway run python app.py          # → http://localhost:5000
-# or, without railway-cli, copy .env.example → .env and `python app.py`
+python app.py
+# Visit http://localhost:5000
 ```
 
-The old "double-click `index.html`" flow no longer works — the page is now a Jinja template rendered by Flask.
+## Deployment
 
-## Deploy
+Railway connects directly to this repo. Pushing to `staging` deploys to the staging environment; `main` deploys to production. The Postgres database is a Railway service with a 200GB volume attached.
 
-Railway auto-deploys on push to `main`. `Procfile` tells Railway's Nixpacks builder to boot `gunicorn app:app --bind 0.0.0.0:$PORT`. Env vars are managed in the Railway dashboard (`SECRET_KEY`, `DATABASE_URL`, `OPENAI_API_KEY`, `UPLOAD_DIR`, `PAST_PAPERS_DIR`, `FLASK_ENV`) — see `RAILWAY.md`.
+## Status
 
-## Folder structure
+Active. I use this daily during exam prep. The ingestion worker has run through both syllabi end-to-end; current work is on the revision-page UX and the exercise interactivity.
 
-```
-Smart-igcse-platform/
-├── app.py                  ← Flask factory (create_app) + module-level `app` for gunicorn
-├── config.py               ← Env-var-driven Config class + validate()
-├── extensions.py           ← db / login_manager / migrate singletons
-├── Procfile                ← Railway boot command
-├── .python-version         ← 3.12.3 pin for Nixpacks/pyenv
-├── requirements.txt        ← Pinned deps (compatible-release)
-├── .env.example            ← Template for local .env
-├── templates/
-│   ├── base.html           ← Layout wrapper (url_for static, {% block %} slots)
-│   └── index.html          ← Extends base; topic recap content
-├── static/
-│   ├── css/style.css       ← Design tokens + all styling
-│   └── js/app.js           ← Topic filter, dark-mode toggle, keyboard shortcuts
-├── migrations/             ← Alembic (empty versions/ until Phase 1)
-├── tests/
-│   ├── conftest.py         ← SQLite-in-memory fixtures
-│   ├── test_config.py      ← Env-var normalisation + validation
-│   └── test_smoke.py       ← Factory + / + /health + static endpoints
-└── .claude/state/          ← plan.md, phase-0-plan.md, todo.md, abbreviations.md
-```
+## License
 
-## Features (current static page)
+MIT.
 
-- 7 topic cards with formulas, examples, and quick-recall tips (Irrationals, Compound interest, Probability, Functions, Vectors, Motion graphs, Differentiation).
-- Topic filter nav; click to isolate a single topic or "All topics".
-- Dark-mode toggle (◐ top-right), persisted in `localStorage` under `igcse-theme`.
-- Keyboard shortcuts: `1`–`7` jump to topic, `a` or `0` show all, `d` toggles dark mode.
-- Print-friendly: nav + toggle hide on print; all cards forced visible.
+## Notes
 
-## Editing content
-
-Topic content lives in `templates/index.html` as plain HTML inside `<article class="topic-card">` blocks. CSS tokens in `static/css/style.css` under `:root` (light) and `body.dark-mode` (dark). New components MUST use `var(--color-...)` tokens — hard-coded colours break dark mode.
+This is a tool I built for myself first. If you're a Cambridge IGCSE student and want to adapt it for your own use, the code is open — the source data (past papers, syllabi) is property of Cambridge International and is not included in this repo.
